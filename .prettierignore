@@ -1,0 +1,25 @@
+# Exclude node_modules directory
+node_modules/
+
+# Exclude build output directories
+dist/
+build/
+
+# Exclude minified JavaScript files
+*.min.js
+
+# Exclude test coverage reports
+coverage/
+
+# Exclude specific files
+src/legacy-code.js
+src/experimental/
+
+# Exclude all markdown files
+*.md
+
+# Exclude Prettier configuration files
+.prettierrc
+.prettierrc.js
+.prettierrc.json
+.prettierrc.yml
