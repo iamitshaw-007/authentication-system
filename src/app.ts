@@ -5,6 +5,7 @@ import { routeNotFoundHandler } from "./controllers/route-not-found.handler.js";
 import healthsRouter from "./routes/healths.route.js";
 import helmet from "helmet";
 import cors from "cors";
+import assessmentRouter from "./routes/assessment.route.js";
 
 /*
  * Initialize an Express application instance.
@@ -57,6 +58,7 @@ app.use(
  *   organizing health-related routes under a versioned API path.
  */
 app.use("/api/v1/healths", healthsRouter);
+app.use("/api/v1/assessment", assessmentRouter);
 
 /*
  * Route-Not-Found Handler Middleware

@@ -24,6 +24,7 @@
         "@commitlint/cli": "^19.7.1",
         "@commitlint/config-conventional": "^19.7.1",
         "@eslint/js": "^9.20.0",
+        "@types/cors": "^2.8.17",
         "@types/eslint__js": "^8.42.3",
         "@types/express": "^5.0.0",
         "@types/lodash": "^4.17.15",
@@ -65,7 +66,6 @@
         ]
     },
     "dependencies": {
-        "@types/cors": "^2.8.17",
         "cors": "^2.8.5",
         "dotenv": "^16.4.7",
         "express": "^4.21.2",
