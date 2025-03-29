@@ -28,8 +28,8 @@ INSERT INTO question_versions (
     numeric_answer
 )
 VALUES (
-    (SELECT id FROM languages WHERE name = 'ENGLISH'),
-    (SELECT id FROM question_types WHERE type = 'NUMERIC'),
+    (SELECT id FROM languages WHERE name ilike '%english%'),
+    (SELECT id FROM question_types WHERE type ilike '%numeric%'),
     '<p> A train travels from point A to point B at an average speed of 60 km/h and returns from point B to point A at an average speed of 40 km/h. What is the average speed of the train for the entire journey, in km/h? </p>',
     48
 );
@@ -41,8 +41,8 @@ INSERT INTO question_versions (
     numeric_answer
 )
 VALUES (
-    (SELECT id FROM languages WHERE name = 'HINDI'),
-    (SELECT id FROM question_types WHERE type = 'NUMERIC'),
+    (SELECT id FROM languages WHERE name ilike '%hindi%'),
+    (SELECT id FROM question_types WHERE type ilike '%numeric%'),
     '<p> एक ट्रेन बिंदु A से बिंदु B तक 60 किमी/घंटा की औसत गति से यात्रा करती है और बिंदु B से बिंदु A तक 40 किमी/घंटा की औसत गति से वापस आती है। पूरी यात्रा के लिए ट्रेन की औसत गति क्या है, किमी/घंटा में? </p>',
     48
 );
