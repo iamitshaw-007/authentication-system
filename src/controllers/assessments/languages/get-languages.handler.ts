@@ -12,7 +12,12 @@ export async function getLanguagesHandler(
 ) {
     try {
         const languagesGetQueryResult: QueryResult = await pool.query(
-            `SELECT * FROM languages`
+            `SELECT 
+                languages.id AS "languageId",
+                languages.language_name AS "languageType",
+                languages.language_code AS "languageCode",
+                languages.display_name AS "languageName"
+            FROM languages`
         );
         winstonLoggerUtil.info("Success Response Handler For Languages");
         successHttpResponseObjectUtil(request, response, 200, {

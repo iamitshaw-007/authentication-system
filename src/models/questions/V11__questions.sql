@@ -1,5 +1,5 @@
 CREATE TABLE questions (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     course_id UUID NOT NULL,
     subject_id UUID NOT NULL,
     question_type_id UUID NOT NULL,
@@ -23,6 +23,7 @@ FOR EACH ROW
 EXECUTE FUNCTION set_updated_at();
 
 INSERT INTO questions (
+    course_id,
     subject_id,
     question_type_id,
     status,
@@ -30,8 +31,9 @@ INSERT INTO questions (
     difficulty
 )
 VALUES (
+    (SELECT id FROM courses WHERE course_code = '10'),
     (SELECT id FROM subjects WHERE subject_code = 'MATHEMATICS_10'),
-    (SELECT id FROM question_types WHERE quesion_type = 'NUMERIC'),
+    (SELECT id FROM question_types WHERE question_type = 'NUMERIC'),
     'ACTIVE',
     'Time & Distance',
     'MEDIUM'

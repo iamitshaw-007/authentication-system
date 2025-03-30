@@ -1,5 +1,5 @@
 CREATE TABLE subjects(
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     subject_code VARCHAR(32) NOT NULL UNIQUE,
     display_name VARCHAR(32) NOT NULL,
     course_id UUID NOT NULL,

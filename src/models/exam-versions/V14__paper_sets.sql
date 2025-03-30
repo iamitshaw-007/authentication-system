@@ -1,5 +1,5 @@
 CREATE TABLE paper_sets (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name VARCHAR(1) NOT NULL,
     description TEXT,
     CONSTRAINT unique_name UNIQUE (name),

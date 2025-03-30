@@ -1,5 +1,5 @@
 CREATE TABLE exam_versions (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     exam_instructions TEXT NOT NULL CHECK (LENGTH(exam_instructions) > 0),
     passing_score INTEGER NOT NULL CHECK (passing_score > 0),
     total_score INTEGER NOT NULL CHECK (total_score > 0),

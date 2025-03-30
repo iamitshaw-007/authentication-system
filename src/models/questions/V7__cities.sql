@@ -1,5 +1,5 @@
 CREATE TABLE cities (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     city VARCHAR(128) NOT NULL,
     state_id UUID NOT NULL,
     CONSTRAINT fk_state_id FOREIGN KEY (state_id) REFERENCES states(id)

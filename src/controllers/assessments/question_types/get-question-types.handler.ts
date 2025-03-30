@@ -12,7 +12,11 @@ export async function getQuestionTypesHandler(
 ) {
     try {
         const questionTypesGetQueryResult: QueryResult = await pool.query(
-            `SELECT * FROM question_types`
+            `SELECT 
+                question_types.id AS "questionTypeId",
+                question_types.question_type AS "questionType",
+                question_types.display_name AS "questionName"
+            FROM question_types`
         );
         winstonLoggerUtil.info("Get QuestionTypes Success");
         successHttpResponseObjectUtil(request, response, 200, {

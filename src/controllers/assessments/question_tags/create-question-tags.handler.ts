@@ -13,7 +13,17 @@ export async function createQuestionTagsHandler(
     try {
         /* validate request body */
         const { error, value } = Joi.object({
-            tags: Joi.array().items(Joi.string()).unique().min(1).required(),
+            tags: Joi.array()
+                .items(
+                    Joi.object({
+                        tag: Joi.string().required(),
+                        description: Joi.string().optional().default(null),
+                        category: Joi.string().optional().default(null),
+                    })
+                )
+                .unique()
+                .min(1)
+                .required(),
         }).validate(request.body, {
             abortEarly: false,
         });
@@ -25,19 +35,41 @@ export async function createQuestionTagsHandler(
                 nextFunction,
                 400,
                 {
-                    errorDetails: error.details.map(
-                        (errorDetail) => errorDetail.message
+                    errorDetails: error.details.map((errorDetail) =>
+                        errorDetail.message.replace(/"([^"]*)"/g, "$1")
                     ),
                 }
             );
         } else {
-            const values = value.tags
-                .map((_: string, index: number) => `($${index + 1})`)
-                .join(", ");
             await pool.query(
-                `INSERT INTO question_tags (tag) 
-                VALUES ${values}`,
-                value.tags
+                `INSERT INTO question_tags 
+                    (question_tag, category, description) 
+                    VALUES ${value.tags
+                        .map(
+                            (
+                                _: {
+                                    tag: string;
+                                    category: string;
+                                    description: string;
+                                },
+                                index: number
+                            ) =>
+                                `($${index * 3 + 1}, 
+                            $${index * 3 + 2}, 
+                            $${index * 3 + 3})`
+                        )
+                        .join(", ")}`,
+                value.tags.flatMap(
+                    (tagObject: {
+                        tag: string;
+                        category: string;
+                        description: string;
+                    }) => [
+                        tagObject.tag,
+                        tagObject.category,
+                        tagObject.description,
+                    ]
+                )
             );
             winstonLoggerUtil.info("Question tags created successfully", {
                 meta: {
@@ -49,7 +81,7 @@ export async function createQuestionTagsHandler(
             });
         }
     } catch (error) {
-        winstonLoggerUtil.info("Error Response Generator For QuestionTags");
+        winstonLoggerUtil.info("Error Creating QuestionTags");
         errorHttpResponseObjectUtil(error, request, response, nextFunction);
     }
 }

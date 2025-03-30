@@ -1,5 +1,5 @@
 CREATE TABLE addresses (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     entity_type_id UUID NOT NULL,
     address_type VARCHAR(16) CHECK (address_type IN ('PRIMARY', 'SECONDARY', 'MAILING', 'BILLING')) NOT NULL DEFAULT 'PRIMARY',
     address_line_1 VARCHAR(256) NOT NULL,
@@ -27,12 +27,12 @@ EXECUTE FUNCTION set_updated_at();
 INSERT INTO addresses(entity_type_id, address_type, address_line_1, 
 address_line_2, city_id, state_id, country, postal_code, 
 phone_number, contact_name, contact_email) VALUES
-((SELECT id FROM entity_types WHERE type = 'ADMIN'), 'PRIMARY', 
+((SELECT id FROM entity_types WHERE entity_type = 'ADMIN'), 'PRIMARY', 
 '114/B, parshurampur', 'near primary school', 
 (SELECT id FROM cities WHERE city = 'Jehanabad'),
 (SELECT id FROM states WHERE state = 'Bihar'), 'INDIA', 
 '804428', '8789906286', 'Amit Shaw', 'imamitshaw.61@gmial.com'),
-((SELECT id FROM entity_types WHERE type = 'ADMIN'), 'SECONDARY', 
+((SELECT id FROM entity_types WHERE entity_type = 'ADMIN'), 'SECONDARY', 
 '114/B, parshurampur', 'near primary school', 
 (SELECT id FROM cities WHERE city = 'Jehanabad'),
 (SELECT id FROM states WHERE state = 'Bihar'), 'INDIA', 

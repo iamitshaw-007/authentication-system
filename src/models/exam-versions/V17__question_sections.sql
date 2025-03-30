@@ -1,5 +1,5 @@
 CREATE TABLE question_sections (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     section_name VARCHAR(64) NOT NULL CHECK (LENGTH(section_name) > 0),
     section_order INTEGER CHECK (section_order > 0),
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,

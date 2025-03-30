@@ -1,5 +1,5 @@
 CREATE TABLE languages(
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     language_name VARCHAR(16) NOT NULL UNIQUE,
     language_code VARCHAR(4) NOT NULL UNIQUE,
     display_name VARCHAR(16) NOT NULL UNIQUE

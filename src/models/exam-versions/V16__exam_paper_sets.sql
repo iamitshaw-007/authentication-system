@@ -1,5 +1,5 @@
 CREATE TABLE exam_paper_sets(
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     exam_version_id UUID NOT NULL,
     paper_set_id UUID NOT NULL,
     FOREIGN KEY (exam_version_id) REFERENCES exam_versions(id),

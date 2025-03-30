@@ -1,5 +1,5 @@
 CREATE TABLE question_tags(
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     question_tag VARCHAR(64) NOT NULL UNIQUE,
     category VARCHAR(64) NOT NULL,
     description TEXT

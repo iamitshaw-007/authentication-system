@@ -1,5 +1,5 @@
 CREATE TABLE courses(
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     course_name VARCHAR(16) NOT NULL UNIQUE,
     display_name VARCHAR(16) NOT NULL UNIQUE,
     course_code VARCHAR(8) NOT NULL UNIQUE

@@ -11,8 +11,12 @@ export async function getStatesHandler(
     nextFunction: NextFunction
 ) {
     try {
-        const statesGetQueryResult: QueryResult =
-            await pool.query(`SELECT * FROM states`);
+        const statesGetQueryResult: QueryResult = await pool.query(
+            `SELECT 
+                states.id AS "stateId", 
+                states.state AS "stateName" 
+            FROM states`
+        );
         winstonLoggerUtil.info("Success Response Handler For States");
         successHttpResponseObjectUtil(request, response, 200, {
             states: statesGetQueryResult.rows,

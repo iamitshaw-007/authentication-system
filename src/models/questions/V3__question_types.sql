@@ -1,5 +1,5 @@
 CREATE TABLE question_types(
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     question_type VARCHAR(32) NOT NULL UNIQUE,
     display_name VARCHAR(32) NOT NULL UNIQUE
 );

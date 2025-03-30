@@ -1,5 +1,5 @@
 CREATE TABLE question_versions(
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     language_id UUID NOT NULL,
     question_type_id UUID NOT NULL,
     question_text TEXT NOT NULL,
