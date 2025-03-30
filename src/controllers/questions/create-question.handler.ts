@@ -27,8 +27,8 @@ export async function createQuestionHandler(
                 nextFunction,
                 400,
                 {
-                    errorDetails: error.details.map(
-                        (errorDetail) => errorDetail.message
+                    errorDetails: error.details.map((errorDetail) =>
+                        errorDetail.message.replace(/"([^"]*)"/g, "$1")
                     ),
                 }
             );
@@ -38,19 +38,20 @@ export async function createQuestionHandler(
                 await client.query("BEGIN");
                 // step 1: insert generic details into questions
                 const questionInsertQuery = `
-                    INSERT INTO questions (subjects_id, difficulty, 
-                    question_types_id, status, topic)
-                    VALUES ($1, $2, $3, $4, $5)
+                    INSERT INTO questions (subject_id, difficulty, 
+                    question_type_id, status, topic, course_id)
+                    VALUES ($1, $2, $3, $4, $5, $6)
                     RETURNING id;
                 `;
                 const questionResult: QueryResult = await client.query(
                     questionInsertQuery,
                     [
-                        value.subjectsId,
+                        value.subjectId,
                         value.difficulty,
-                        value.questionTypesId,
+                        value.questionTypeId,
                         value.status,
                         value.topic,
+                        value.courseId,
                     ]
                 );
                 const questionId = questionResult.rows[0].id;
@@ -73,61 +74,56 @@ export async function createQuestionHandler(
                 }
                 // step 3: insert into question_versions table for each version
                 if (
-                    Array.isArray(value.languageVersions) &&
-                    value.languageVersions.length > 0
+                    Array.isArray(value.questionVersions) &&
+                    value.questionVersions.length > 0
                 ) {
-                    const valuesLanguageVersionsQuery =
-                        value.languageVersions.map(
-                            (_: unknown, index: number) =>
-                                `($${index * 8 + 1}, $${index * 8 + 2}, $${index * 8 + 3}, 
-                                $${index * 8 + 4}, $${index * 8 + 5}, $${index * 8 + 6}, 
-                                $${index * 8 + 7}, $${index * 8 + 8})`
-                        );
-                    const languageVersionValues =
-                        value.languageVersions.flatMap(
-                            (languageVersionObject: {
-                                languagesId: unknown;
-                                questionText: string;
-                                descriptiveAnswer: string;
-                                fillInTheBlankAnswer: string;
-                                numericAnswer: number;
-                                multipleChoiceAnswer: string;
-                                multipleChoiceOptions: object;
-                                questionTypesId: unknown;
-                            }) => [
-                                languageVersionObject.languagesId,
-                                languageVersionObject.questionText,
-                                languageVersionObject.descriptiveAnswer,
-                                languageVersionObject.fillInTheBlankAnswer,
-                                languageVersionObject.numericAnswer,
-                                languageVersionObject.multipleChoiceAnswer,
-                                languageVersionObject.multipleChoiceOptions,
-                                languageVersionObject.questionTypesId,
-                            ]
-                        );
-                    const languageVersionsInsertQueryResult: QueryResult =
+                    const questionVersionsInsertQueryResult: QueryResult =
                         await client.query(
-                            `INSERT INTO question_versions (languages_id, 
+                            `INSERT INTO question_versions (language_id, 
                             question_text, descriptive_answer, fill_in_the_blank_answer, 
                             numeric_answer, multiple_choice_answer, 
-                            multiple_choice_options, question_types_id) 
-                            VALUES ${valuesLanguageVersionsQuery.join(",")} RETURNING id;`,
-                            languageVersionValues
+                            multiple_choice_options, question_type_id) 
+                            VALUES ${value.questionVersions
+                                .map(
+                                    (_: unknown, index: number) =>
+                                        `($${index * 8 + 1}, $${index * 8 + 2}, $${index * 8 + 3}, 
+                                    $${index * 8 + 4}, $${index * 8 + 5}, $${index * 8 + 6}, 
+                                    $${index * 8 + 7}, $${index * 8 + 8})`
+                                )
+                                .join(",")} RETURNING id;`,
+                            value.questionVersions.flatMap(
+                                (languageVersionObject: {
+                                    languageId: unknown;
+                                    questionText: string;
+                                    descriptiveAnswer: string;
+                                    fillInTheBlankAnswer: string;
+                                    numericAnswer: number;
+                                    multipleChoiceAnswer: string;
+                                    multipleChoiceOptions: object;
+                                    questionTypeId: unknown;
+                                }) => [
+                                    languageVersionObject.languageId,
+                                    languageVersionObject.questionText,
+                                    languageVersionObject.descriptiveAnswer,
+                                    languageVersionObject.fillInTheBlankAnswer,
+                                    languageVersionObject.numericAnswer,
+                                    languageVersionObject.multipleChoiceAnswer,
+                                    languageVersionObject.multipleChoiceOptions,
+                                    languageVersionObject.questionTypeId,
+                                ]
+                            )
                         );
-                    // step 4: insert into questin_version_associations
-                    const valuesQuestionVersionAssociationsQuery =
-                        languageVersionsInsertQueryResult.rows.map(
-                            (_: unknown, index: number) =>
-                                `($${index * 2 + 1} , $${index * 2 + 2})`
-                        );
-                    winstonLoggerUtil.info("result", {
-                        meta: languageVersionsInsertQueryResult,
-                    });
+                    // step 4: insert into questin_version_associationss
                     await client.query(
                         `INSERT INTO question_version_associations
                         (question_id, question_version_id)
-                        VALUES ${valuesQuestionVersionAssociationsQuery.join(",")};`,
-                        languageVersionsInsertQueryResult.rows.flatMap(
+                        VALUES ${questionVersionsInsertQueryResult.rows
+                            .map(
+                                (_: unknown, index: number) =>
+                                    `($${index * 2 + 1} , $${index * 2 + 2})`
+                            )
+                            .join(",")};`,
+                        questionVersionsInsertQueryResult.rows.flatMap(
                             (versionObject: { id: unknown }) => [
                                 questionId,
                                 versionObject.id,
@@ -136,14 +132,14 @@ export async function createQuestionHandler(
                     );
                 }
                 await client.query("COMMIT");
-                winstonLoggerUtil.info("Calling Success Response Handler");
+                winstonLoggerUtil.info("Question Created Successfully");
                 successHttpResponseObjectUtil(request, response, 201, {
                     questionId: questionId,
-                    message: "Question created successfully",
+                    message: "Question Created Successfully",
                 });
             } catch (error) {
                 await client.query("ROLLBACK");
-                winstonLoggerUtil.info("Calling Error Response Generator");
+                winstonLoggerUtil.info("Error Creating Question: Rollback");
                 errorHttpResponseObjectUtil(
                     error,
                     request,
@@ -155,7 +151,7 @@ export async function createQuestionHandler(
             }
         }
     } catch (error) {
-        winstonLoggerUtil.info("Calling Error Response Generator");
+        winstonLoggerUtil.info("Error Creating Question");
         errorHttpResponseObjectUtil(error, request, response, nextFunction);
     }
 }

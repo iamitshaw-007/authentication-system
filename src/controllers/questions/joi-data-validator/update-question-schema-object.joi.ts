@@ -2,19 +2,20 @@ import Joi from "joi";
 
 const updateQuestionSchemaObject = Joi.object({
     id: Joi.string().uuid().required(),
-    subjectsId: Joi.string().uuid().required(),
-    questionTypesId: Joi.string().uuid().required(),
+    courseId: Joi.string().uuid().required(),
+    subjectId: Joi.string().uuid().required(),
+    questionTypeId: Joi.string().uuid().required(),
     status: Joi.string().valid("ACTIVE", "INACTIVE").required(),
     topic: Joi.string().max(64).optional(),
     difficulty: Joi.string().valid("EASY", "MEDIUM", "HARD").required(),
     tags: Joi.array().items(Joi.string().uuid()).unique(),
-    languageVersions: Joi.array()
+    questionVersions: Joi.array()
         .items(
             Joi.object({
                 id: Joi.string().uuid().optional(),
-                languagesId: Joi.string().uuid().required(),
+                languageId: Joi.string().uuid().required(),
                 questionText: Joi.string().required(),
-                questionTypesId: Joi.string().uuid().required(),
+                questionTypeId: Joi.string().uuid().required(),
                 questionType: Joi.string()
                     .valid(
                         "NUMERIC",
@@ -61,7 +62,7 @@ const updateQuestionSchemaObject = Joi.object({
         )
         .required()
         .min(1)
-        .unique("languagesId"),
+        .unique("languageId"),
 });
 
 export default updateQuestionSchemaObject;

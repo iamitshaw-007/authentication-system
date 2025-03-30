@@ -12,30 +12,30 @@ export async function listQuestionsHandler(
 ) {
     try {
         const questionsGetQueryResult: QueryResult = await pool.query(
-            `WITH LanguageVersions AS (
+            `WITH QuestionVersions AS (
                 SELECT 
                     question_version_associations.question_id,
                     JSON_AGG(
                         JSON_BUILD_OBJECT(
-                            'version_id', question_versions.id,
-                            'question_text', question_versions.question_text, 
-                            'numeric_answer', question_versions.numeric_answer, 
-                            'language', languages.name,
-                            'question_type', question_types.type,
-                            'multiple_choice_options', question_versions.multiple_choice_options,
-                            'multiple_choice_answer', question_versions.multiple_choice_answer,
-                            'fill_in_the_blank_answer', question_versions.fill_in_the_blank_answer,
-                            'descriptive_answer', question_versions.descriptive_answer
+                            'questionVersionId', question_versions.id,
+                            'questionText', question_versions.question_text, 
+                            'numericAnswer', question_versions.numeric_answer, 
+                            'languageName', languages.display_name,
+                            'questionType', question_types.question_type,
+                            'multipleChoiceOptions', question_versions.multiple_choice_options,
+                            'multipleChoiceAnswer', question_versions.multiple_choice_answer,
+                            'fillInTheBlankAnswer', question_versions.fill_in_the_blank_answer,
+                            'descriptiveAnswer', question_versions.descriptive_answer
                         )
-                    ) as languageVersions
+                    ) as questionVersions
                 FROM 
                     question_version_associations 
                 JOIN question_versions ON
                     question_version_associations.question_version_id = question_versions.id
                 JOIN languages ON
-                    question_versions.languages_id = languages.id
+                    question_versions.language_id = languages.id
                 JOIN question_types ON 
-                    question_versions.question_types_id = question_types.id
+                    question_versions.question_type_id = question_types.id
                 GROUP BY 
                     question_version_associations.question_id
             ), QuestionTags AS (
@@ -43,8 +43,9 @@ export async function listQuestionsHandler(
                     question_tag_associations.question_id,
                     JSON_AGG(
                         JSON_BUILD_OBJECT(
-                            'id', question_tags.id,
-                            'tag', question_tags.tag
+                            'tagId', question_tags.id,
+                            'tagName', question_tags.question_tag,
+                            'tagCategory', question_tags.category
                         )
                     ) as questionTags
                 FROM 
@@ -55,29 +56,29 @@ export async function listQuestionsHandler(
                     question_tag_associations.question_id
             )
             SELECT 
-                questions.id,
+                questions.id AS "questionId",
                 questions.status, 
                 questions.difficulty, 
                 questions.topic, 
-                subjects.subject,
-                question_types.type,
-                LanguageVersions.languageVersions,
-                QuestionTags.questionTags
+                subjects.display_name AS "subjectName",
+                question_types.question_type AS "questionType",
+                QuestionVersions.questionVersions AS "questionVersions",
+                QuestionTags.questionTags AS "questionTags"
             FROM questions 
             JOIN subjects ON 
-                subjects.id = questions.subjects_id
+                subjects.id = questions.subject_id
             JOIN question_types ON
-                question_types.id = questions.question_types_id
-            JOIN LanguageVersions ON LanguageVersions.question_id = questions.id
+                question_types.id = questions.question_type_id
+            JOIN QuestionVersions ON QuestionVersions.question_id = questions.id
             LEFT JOIN QuestionTags ON QuestionTags.question_id = questions.id`
         );
-        winstonLoggerUtil.info("Calling Success Response Handler");
+        winstonLoggerUtil.info("Get Questions Success");
         successHttpResponseObjectUtil(request, response, 200, {
             questions: questionsGetQueryResult.rows,
             questionsCount: questionsGetQueryResult.rowCount,
         });
     } catch (error) {
-        winstonLoggerUtil.info("Calling Error Response Generator");
+        winstonLoggerUtil.info("Get Questions Error");
         errorHttpResponseObjectUtil(error, request, response, nextFunction);
     }
 }
