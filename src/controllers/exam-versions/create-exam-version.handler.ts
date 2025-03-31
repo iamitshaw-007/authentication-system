@@ -27,8 +27,8 @@ export async function createExamVersionHandler(
                 nextFunction,
                 400,
                 {
-                    errorDetails: error.details.map(
-                        (errorDetail) => errorDetail.message
+                    errorDetails: error.details.map((errorDetail) =>
+                        errorDetail.message.replace(/"([^"]*)"/g, "$1")
                     ),
                 }
             );
@@ -38,9 +38,9 @@ export async function createExamVersionHandler(
                 await client.query("BEGIN");
                 // step 1: insert generic details into exam_versions
                 const examVersionInsertQuery = `
-                    INSERT INTO exam_versions (status, languages_id, course_id, passing_score, 
+                    INSERT INTO exam_versions (status, language_id, course_id, passing_score, 
                     total_score, exam_instructions, exam_version_name, has_resource_booklet, 
-                    resource_booklet_information, has_paper_sets, has_sections)
+                    resource_booklet_information, has_question_sets, has_sections)
                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
                     RETURNING id;
                 `;
@@ -56,7 +56,7 @@ export async function createExamVersionHandler(
                         value.examVersionName,
                         value.hasResourseBooklet,
                         value.resourseBookletInformation,
-                        value.hasPaperSets,
+                        value.hasQuestionSets,
                         value.hasSections,
                     ]
                 );
@@ -91,18 +91,11 @@ export async function createExamVersionHandler(
                     );
 
                     // step 3: insert into question_sections
-                    const sectionDetailListInPaperSet: [
-                        string,
-                        number,
-                        string,
-                    ][] = [];
-                    const questionDetailListInSection: [
-                        string,
-                        string,
-                        number,
-                        number,
-                    ][] = [];
-
+                    const sectionDetailListInPaperSet: {
+                        sectionName: string;
+                        sectionOrder: number;
+                        examPaperSetid: string;
+                    }[] = [];
                     value.examPaperSets.forEach(
                         (
                             examPaperSet: {
@@ -121,11 +114,11 @@ export async function createExamVersionHandler(
                             examPaperSet.sections.forEach((section) => {
                                 const examPaperSetId =
                                     examPaperSetIds[paperSetIndex];
-                                sectionDetailListInPaperSet.push([
-                                    section.sectionName,
-                                    section.sectionOrder,
-                                    examPaperSetId,
-                                ]);
+                                sectionDetailListInPaperSet.push({
+                                    sectionName: section.sectionName,
+                                    sectionOrder: section.sectionOrder,
+                                    examPaperSetid: examPaperSetId,
+                                });
                             });
                         }
                     );
@@ -137,21 +130,36 @@ export async function createExamVersionHandler(
                                 VALUES ${sectionDetailListInPaperSet
                                     .map(
                                         (
-                                            _: [string, number, string],
+                                            _: {
+                                                sectionName: string;
+                                                sectionOrder: number;
+                                                examPaperSetid: string;
+                                            },
                                             index: number
                                         ) =>
-                                            `($${index * 3 + 1}, $${index * 3 + 2})`
+                                            `($${index * 2 + 1}, $${index * 2 + 2})`
                                     )
                                     .join(", ")}
                                 RETURNING id;
                             `,
-                            sectionDetailListInPaperSet.flat()
+                            sectionDetailListInPaperSet.flatMap(
+                                (sectionDetail: {
+                                    sectionName: string;
+                                    sectionOrder: number;
+                                    examPaperSetid: string;
+                                }) => [
+                                    sectionDetail.sectionName,
+                                    sectionDetail.sectionOrder,
+                                ]
+                            )
                         );
                     const questionSectionIds: string[] =
                         questionSectionsInsertQueryResult.rows.map(
                             (questionSection: { id: string }) =>
                                 questionSection.id
                         );
+
+                    // step 4: insert into paper_set_section_associations
                     const paperSetSectionDetailList: [string, string][] = [];
                     for (
                         let i = 0;
@@ -159,16 +167,15 @@ export async function createExamVersionHandler(
                         i++
                     ) {
                         const examPaperSetId =
-                            sectionDetailListInPaperSet[i][2];
+                            sectionDetailListInPaperSet[i].examPaperSetid;
                         paperSetSectionDetailList.push([
-                            examPaperSetId,
                             questionSectionIds[i],
+                            examPaperSetId,
                         ]);
                     }
-                    // step 4: insert into paper_set_section_association
                     await client.query(
                         `
-                            INSERT INTO paper_set_section_association 
+                            INSERT INTO paper_set_section_associations
                             (question_section_id, exam_paper_set_id)
                             VALUES ${paperSetSectionDetailList
                                 .map(
@@ -179,6 +186,14 @@ export async function createExamVersionHandler(
                         `,
                         paperSetSectionDetailList.flat()
                     );
+
+                    // step 5: insert into section_question_associations
+                    const questionDetailListInSection: [
+                        string,
+                        string,
+                        number,
+                        number,
+                    ][] = [];
                     let sectionIndex = 0;
                     value.examPaperSets.forEach(
                         (examPaperSet: {
@@ -207,11 +222,9 @@ export async function createExamVersionHandler(
                             });
                         }
                     );
-
-                    // step 5: insert into section_questions_associations
                     await client.query(
                         `
-                            INSERT INTO section_questions_associations 
+                            INSERT INTO section_question_associations 
                             (question_section_id, question_id, question_order, marks)
                             VALUES ${questionDetailListInSection
                                 .map(
@@ -229,17 +242,20 @@ export async function createExamVersionHandler(
                 }
 
                 await client.query("COMMIT");
-                winstonLoggerUtil.info("Calling Success Response Handler");
+                winstonLoggerUtil.info("Exam Version Created Successfully");
                 successHttpResponseObjectUtil(request, response, 201, {
                     questionId: examVersionId,
-                    message: "Exam version created successfully",
+                    message: "Exam Version Created Successfully",
                 });
             } catch (error) {
                 await client.query("ROLLBACK");
-                winstonLoggerUtil.error("Error creating exam version:", {
-                    meta: { error },
-                });
-                winstonLoggerUtil.info("Calling Error Response Generator");
+                winstonLoggerUtil.error(
+                    "Error Creating Exam Version: Rollback",
+                    {
+                        meta: { error },
+                    }
+                );
+                winstonLoggerUtil.info("Error Creating Exam Version");
                 errorHttpResponseObjectUtil(
                     error,
                     request,
@@ -251,7 +267,7 @@ export async function createExamVersionHandler(
             }
         }
     } catch (error) {
-        winstonLoggerUtil.info("Calling Error Response Generator");
+        winstonLoggerUtil.info("Error Creating Exam Version");
         errorHttpResponseObjectUtil(error, request, response, nextFunction);
     }
 }

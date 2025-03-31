@@ -102,14 +102,16 @@ export async function updateQuestionHandler(
                             question_type_id = $2,
                             status = $3,
                             difficulty = $4,
-                            topic = $5
-                        WHERE id = $6`,
+                            topic = $5,
+                            course_id = $6
+                        WHERE id = $7`,
                         [
                             value.subjectId,
                             value.questionTypeId,
                             value.status,
                             value.difficulty,
                             value.topic,
+                            value.courseId,
                             questionId,
                         ]
                     );
@@ -143,8 +145,8 @@ export async function updateQuestionHandler(
                         for (const version of value.questionVersions) {
                             const doesVersionExists =
                                 existingQuestionVersions.find(
-                                    (existingQUestionVersion) =>
-                                        existingQUestionVersion.questionVersionId ===
+                                    (existingQuestionVersion) =>
+                                        existingQuestionVersion.questionVersionId ===
                                         version.id
                                 );
 

@@ -50,6 +50,6 @@ VALUES (
     'YES',
     's3BucketLink',
     'YES',
-    'YES'
+    'YES',
     'ACTIVE'
 );

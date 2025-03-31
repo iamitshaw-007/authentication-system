@@ -12,100 +12,96 @@ export async function listExamVersionsHandler(
 ) {
     try {
         const examVersionsGetQueryResult: QueryResult = await pool.query(
-            `WITH sections_with_questions AS (
+            `WITH sectionsWithQuestions AS (
                 SELECT
-                    qs.id AS section_id,
-                    qs.name,
-                    qs.section_order,
-                    qs.question_paper_set_id,
-                    (
-                        SELECT
-                            COALESCE(
-                                json_agg(
-                                    json_build_object(
-                                        'question_id', sqa.question_id,
-                                        'question_order', sqa.question_order,
-                                        'marks', sqa.marks
-                                    )
-                                    ORDER BY sqa.question_order
-                                ),
-                                '[]'::json
+                    question_sections.id AS section_id,
+                    question_sections.section_name,
+                    question_sections.section_order,
+                    COALESCE(
+                        json_agg(
+                            json_build_object(
+                                'questionId', section_question_associations.question_id,
+                                'questionOrder', section_question_associations.question_order,
+                                'marks', section_question_associations.marks
                             )
-                        FROM
-                            section_questions_associations sqa
-                        WHERE
-                            sqa.question_section_id = qs.id
+                            ORDER BY section_question_associations.question_order
+                        ),
+                        '[]'::json
                     ) AS questions
-                FROM
-                    question_sections qs
+                FROM 
+                    question_sections
+                    JOIN section_question_associations ON section_question_associations.question_section_id = question_sections.id
+                GROUP BY
+                    question_sections.id, 
+                    question_sections.section_name, 
+                    question_sections.section_order
             ),
-            question_sets AS (
+            QuestionSets AS (
                 SELECT
-                    qps.id AS question_paper_set_id,
-                    qps.name AS question_paper_set_name,
-                    evsa.exam_version_id,
+                    exam_paper_sets.id AS exam_paper_set_id,
+                    paper_sets.name AS exam_paper_set_name,
                     json_agg(
                         json_build_object(
-                            'question_section_name', qws.name,
-                            'section_order', qws.section_order,
-                            'questions', qws.questions
+                            'sectionId', sectionsWithQuestions.section_id,
+                            'sectionName', sectionsWithQuestions.section_name,
+                            'sectionOrder', sectionsWithQuestions.section_order,
+                            'questions', sectionsWithQuestions.questions
                         )
                         ORDER BY
-                            qws.section_order
-                    ) AS question_sets
+                            sectionsWithQuestions.section_order
+                    ) AS QuestionSets
                 FROM
-                    question_paper_sets qps
-                    JOIN sections_with_questions qws ON qps.id = qws.question_paper_set_id
-                    JOIN question_sections qs ON qs.id = qws.section_id
-                    JOIN exam_version_sections_associations evsa ON qs.id = evsa.question_section_id
+                    paper_set_section_associations
+                    JOIN exam_paper_sets ON exam_paper_sets.id = paper_set_section_associations.exam_paper_set_id
+                    JOIN paper_sets ON paper_sets.id = exam_paper_sets.paper_set_id
+                    JOIN sectionsWithQuestions ON sectionsWithQuestions.section_id = paper_set_section_associations.question_section_id
                 GROUP BY
-                    qps.id,
-                    qps.name,
-                    evsa.exam_version_id
-            ),
-            exam_sets AS (
+                    exam_paper_sets.id,
+                    paper_sets.name
+            ), 
+            ExamPaperSets AS (
                 SELECT
-                    ev.id AS exam_version_id,
+                    exam_paper_sets.exam_version_id,
                     json_agg(
                         json_build_object(
-                            'question_paper_set_name', qs2.question_paper_set_name,
-                            'question_sets', qs2.question_sets
+                            'examPaperSet', QuestionSets.exam_paper_set_name,
+                            'sections', QuestionSets.QuestionSets
                         )
-                    ) AS exam_sets
+                    ) AS ExamPaperSets
                 FROM
-                    exam_versions ev
-                    JOIN question_sets qs2 ON ev.id = qs2.exam_version_id
+                    exam_paper_sets
+                    JOIN QuestionSets ON exam_paper_sets.id = QuestionSets.exam_paper_set_id
                 GROUP BY
-                    ev.id
+                    exam_paper_sets.exam_version_id
             )
             SELECT
-                ev.id,
-                ev.exam_instructions,
-                ev.passing_score,
-                ev.total_score,
-                l.display_name AS languageName,
-                c.title AS courseName,
-                ev.exam_version_name,
-                ev.has_resource_booklet,
-                ev.resource_booklet_information,
-                ev.has_sections,
-                ev.status,
-                ev.created_at,
-                ev.updated_at,
-                COALESCE(es.exam_sets, '[]'::json) AS exam_sets
+                exam_versions.id AS "examVersionId",
+                exam_versions.exam_instructions AS "examInstructions",
+                exam_versions.passing_score AS "passingScore",
+                exam_versions.total_score AS "totalScore",
+                languages.display_name AS "languageName",
+                courses.display_name AS "courseName",
+                exam_versions.exam_version_name AS "examVersionName",
+                exam_versions.has_resource_booklet AS "hasResourseBooklet",
+                exam_versions.resource_booklet_information AS "resourseBookletInformation",
+                exam_versions.has_sections AS "hasSections",
+                exam_versions.status AS "examStatus",
+                exam_versions.created_at AS "createdAt",
+                exam_versions.updated_at AS "updatedAt",
+                COALESCE(ExamPaperSets.ExamPaperSets, '[]'::json) AS "examPaperSets"
             FROM
-                exam_versions ev
-                LEFT JOIN exam_sets es ON ev.id = es.exam_version_id
-                JOIN languages l ON l.id = ev.languages_id
-                JOIN courses c ON c.id = ev.course_id`
+                exam_versions
+                LEFT JOIN ExamPaperSets ON exam_versions.id = ExamPaperSets.exam_version_id
+                JOIN languages ON languages.id = exam_versions.language_id
+                JOIN courses ON courses.id = exam_versions.course_id`
         );
-        winstonLoggerUtil.info("Calling Success Response Handler");
+        winstonLoggerUtil.info("Get Exam Versions Success");
         successHttpResponseObjectUtil(request, response, 200, {
             examVersions: examVersionsGetQueryResult.rows,
             examVersionsCount: examVersionsGetQueryResult.rowCount,
         });
     } catch (error) {
-        winstonLoggerUtil.info("Calling Error Response Generator");
+        winstonLoggerUtil.info("Get Exam Versions Error");
         errorHttpResponseObjectUtil(error, request, response, nextFunction);
     }
 }

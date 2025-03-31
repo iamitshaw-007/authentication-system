@@ -8,32 +8,22 @@ const createExamVersionSchemaObject = Joi.object({
     totalScore: Joi.number().required(),
     examInstructions: Joi.string().required(),
     examVersionName: Joi.string().required(),
-    hasResourseBooklet: Joi.string().valid("Yes", "No").required(),
+    hasResourseBooklet: Joi.string().valid("YES", "NO").required(),
     resourseBookletInformation: Joi.when("hasResourseBooklet", {
-        is: "Yes",
+        is: "YES",
         then: Joi.string().required(),
         otherwise: Joi.any().allow(null),
     }),
-    hasPaperSets: Joi.string().valid("Yes", "No").required(),
-    hasSections: Joi.string().valid("Yes", "No").required(),
+    hasQuestionSets: Joi.string().valid("YES", "NO").required(),
+    hasSections: Joi.string().valid("YES", "NO").required(),
     examPaperSets: Joi.array()
         .items(
             Joi.object({
-                questionPaperSetId: Joi.when("hasPaperSets", {
-                    is: "Yes",
-                    then: Joi.string().uuid().required(),
-                    otherwise: Joi.string().valid("defaultPaparSet"),
-                }),
+                questionPaperSetId: Joi.string().uuid().required(),
                 sections: Joi.array()
                     .items(
                         Joi.object({
-                            sectionName: Joi.when("hasSections", {
-                                is: "Yes",
-                                then: Joi.string().required(),
-                                otherwise: Joi.string()
-                                    .valid("defaultSection")
-                                    .required(),
-                            }),
+                            sectionName: Joi.string().required(),
                             sectionOrder: Joi.number().required(),
                             questions: Joi.array()
                                 .items(

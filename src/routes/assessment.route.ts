@@ -6,6 +6,7 @@ import languagesRouter from "./languages.route.js";
 import questionTagsRouter from "./question-tags.route.js";
 import questionTypesRouter from "./question-types.route.js";
 import coursesRouter from "./courses.route.js";
+import examVersionRouter from "./exam-versions.route.js";
 
 const assessmentRouter = Router();
 
@@ -16,5 +17,6 @@ assessmentRouter.use("/languages", languagesRouter);
 assessmentRouter.use("/questionTags", questionTagsRouter);
 assessmentRouter.use("/questionTypes", questionTypesRouter);
 assessmentRouter.use("/courses", coursesRouter);
+assessmentRouter.use("/exam-version", examVersionRouter);
 
 export default assessmentRouter;
