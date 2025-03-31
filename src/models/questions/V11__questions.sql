@@ -38,3 +38,20 @@ VALUES (
     'Time & Distance',
     'MEDIUM'
 );
+
+INSERT INTO questions (
+    course_id,
+    subject_id,
+    question_type_id,
+    status,
+    topic,
+    difficulty
+)
+VALUES (
+    (SELECT id FROM courses WHERE course_code = '10'),
+    (SELECT id FROM subjects WHERE subject_code = 'SOCIAL_SCIENCE_10'),
+    (SELECT id FROM question_types WHERE question_type = 'NUMERIC'),
+    'ACTIVE',
+    'Planet & Solar System',
+    'EASY'
+);

@@ -7,7 +7,7 @@ CREATE TABLE question_tag_associations (
 );
 
 INSERT INTO question_tag_associations (question_id, question_tag_id) 
-VALUES ('ddff70e2-17bc-45f6-a542-775eb4fa47ba', '788a5a98-4a65-478f-a658-22bcdc20b305'),
-('ddff70e2-17bc-45f6-a542-775eb4fa47ba', '95f868ab-55d5-4024-99cc-b2448183fdc5'),
-('ddff70e2-17bc-45f6-a542-775eb4fa47ba', 'e6c33df5-f6a3-423a-8c08-5d7402e0fbb9'), 
-('ddff70e2-17bc-45f6-a542-775eb4fa47ba', '83a03135-a571-43f3-bb4c-e73650fb20d8');
+VALUES ('ac580240-e87b-47cf-854d-1c01848a63a5', 'f75e5c7f-5119-4094-a28c-3529341e4210'),
+('ac580240-e87b-47cf-854d-1c01848a63a5', '471d9651-1683-4af9-ac51-17af7b4d121f'),
+('b5235a8c-a29f-4a79-9a4b-63311cdab878', 'e39a7d03-f849-4ea0-bdb4-bea53338d3ae'), 
+('b5235a8c-a29f-4a79-9a4b-63311cdab878', 'd5d8ea7b-c166-45eb-b613-6345e78eeaab');

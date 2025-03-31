@@ -21,7 +21,6 @@ CREATE TABLE exam_versions (
     CHECK (total_score > passing_score)  
 );
 
-
 CREATE OR REPLACE TRIGGER trigger_for_updated_at
 BEFORE UPDATE ON exam_versions
 FOR EACH ROW
@@ -41,7 +40,7 @@ INSERT INTO exam_versions (
     status
 )
 VALUES (
-    '<ol><li><strong>Introduction and Instructions</strong>: All questions regarding the examination should be asked during the introductory instruction period. Only procedural questions will be allowed during the examination.</li><li><strong>Examination Format</strong>: Work through the entire examination at your own pace. There are no time limits on individual sections.</li><li><strong>Allowed Materials</strong>: No books, notes, or papers of any kind are permitted. Scrap paper will be provided for your use during the examination.</li><li><strong>Reference Materials</strong>: All necessary mathematical formulas, conversion factors, reference charts, and views are provided in the <strong>Resource Booklet</strong>, which will be distributed at the start of the examination.</li><li><strong>Calculators</strong>: Calculators are permitted for use during the examination.</li><li><strong>Time Allocation</strong>: You will be allowed the entire <strong>five (5) hours</strong> allotted for the total examination session. Use your time wisely to complete all sections of the examination.</li><li><strong>Conduct</strong>: Please conduct yourself in a professional and respectful manner during the examination. Any form of cheating or misconduct will not be tolerated.</li></ol>',
+    '<ol><li><strong>Introduction and Instructions</strong>: All questions regarding the examination should be asked during the introductory instruction period. Only procedural questions will be allowed during the examination.</li><li><strong>Examination Format</strong>: Work through the entire examination at your own pace. There are no time limits on individual sections.</li></ol>',
     40,
     100,
     (SELECT id FROM languages WHERE language_code = 'EN'),

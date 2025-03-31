@@ -90,7 +90,7 @@ export async function createQuestionHandler(
                                     $${index * 8 + 4}, $${index * 8 + 5}, $${index * 8 + 6}, 
                                     $${index * 8 + 7}, $${index * 8 + 8})`
                                 )
-                                .join(",")} RETURNING id;`,
+                                .join(",")} RETURNING id, language_id;`,
                             value.questionVersions.flatMap(
                                 (languageVersionObject: {
                                     languageId: unknown;
@@ -116,17 +116,23 @@ export async function createQuestionHandler(
                     // step 4: insert into questin_version_associationss
                     await client.query(
                         `INSERT INTO question_version_associations
-                        (question_id, question_version_id)
+                        (question_id, question_version_id, language_id)
                         VALUES ${questionVersionsInsertQueryResult.rows
                             .map(
                                 (_: unknown, index: number) =>
-                                    `($${index * 2 + 1} , $${index * 2 + 2})`
+                                    `($${index * 3 + 1} , 
+                                $${index * 3 + 2}, 
+                                $${index * 3 + 3})`
                             )
                             .join(",")};`,
                         questionVersionsInsertQueryResult.rows.flatMap(
-                            (versionObject: { id: unknown }) => [
+                            (versionObject: {
+                                id: unknown;
+                                language_id: unknown;
+                            }) => [
                                 questionId,
                                 versionObject.id,
+                                versionObject.language_id,
                             ]
                         )
                     );
