@@ -7,9 +7,9 @@ CREATE TABLE questions (
     topic VARCHAR(64), 
     difficulty VARCHAR(8) CHECK (difficulty IN ('EASY', 'MEDIUM', 'HARD')) NOT NULL,
     created_by UUID,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_by UUID,
-    updated_at TIMESTAMP WITH TIME ZONE,
+    updated_at TIMESTAMP,
     CONSTRAINT fk_course_id FOREIGN KEY (course_id) REFERENCES courses(id),
     CONSTRAINT fk_subject_id FOREIGN KEY (subject_id) REFERENCES subjects(id),
     CONSTRAINT fk_question_type_id FOREIGN KEY (question_type_id) REFERENCES question_types(id)

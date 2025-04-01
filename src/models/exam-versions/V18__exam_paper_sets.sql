@@ -14,7 +14,7 @@ BEGIN
         NEW.paper_set_id = (
             SELECT id 
             FROM paper_sets 
-            WHERE paper_set_name = 'A'
+            WHERE name = 'A'
         );
     END IF;
     RETURN NEW;
@@ -26,5 +26,5 @@ BEFORE INSERT ON exam_paper_sets
 FOR EACH ROW
 EXECUTE FUNCTION set_default_paper_set();
 
-INSERT INTO exam_paper_sets (exam_version_id, paper_set_id) 
-VALUES ('cccafc7d-75c6-4c0f-87de-3be9c5929439', 'afb86bb4-6b8c-45d7-8e77-2b0a1155cb1e');
+INSERT INTO exam_paper_sets (exam_version_id) 
+VALUES ('b408f72f-439c-4a43-be21-94abbd35a3ad');

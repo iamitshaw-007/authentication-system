@@ -12,10 +12,14 @@ CREATE TABLE exam_versions (
         OR (has_resource_booklet = 'NO' AND resource_booklet_information IS NULL)
     ),
     has_sections VARCHAR(4) NOT NULL CHECK (has_sections IN ('YES', 'NO')),
-    has_question_sets VARCHAR(4) NOT NULL CHECK (has_sections IN ('YES', 'NO')),
-    status VARCHAR(8) NOT NULL CHECK (status IN ('ACTIVE', 'INACTIVE')),
-    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE,
+    has_paper_sets VARCHAR(4) NOT NULL CHECK (has_paper_sets IN ('YES', 'NO')),
+    status VARCHAR(8) CHECK (status IN ('ACTIVE', 'INACTIVE')) DEFAULT 'ACTIVE',
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_by UUID,
+    updated_at TIMESTAMP,
+    updated_by UUID,
+    -- CONSTRAINT fk_created_by FOREIGN KEY (created_by) REFERENCES academy_admins(id),
+    -- CONSTRAINT fk_updated_by FOREIGN KEY (updated_by) REFERENCES academy_admins(id),
     CONSTRAINT fk_language_id FOREIGN KEY (language_id) REFERENCES languages(id),
     CONSTRAINT fk_courses_id FOREIGN KEY (course_id) REFERENCES courses(id), 
     CHECK (total_score > passing_score)  
@@ -36,12 +40,12 @@ INSERT INTO exam_versions (
     has_resource_booklet,
     resource_booklet_information,
     has_sections,
-    has_question_sets,
+    has_paper_sets,
     status
 )
 VALUES (
     '<ol><li><strong>Introduction and Instructions</strong>: All questions regarding the examination should be asked during the introductory instruction period. Only procedural questions will be allowed during the examination.</li><li><strong>Examination Format</strong>: Work through the entire examination at your own pace. There are no time limits on individual sections.</li></ol>',
-    40,
+    35,
     100,
     (SELECT id FROM languages WHERE language_code = 'EN'),
     (SELECT id FROM courses WHERE course_code = '10'),
