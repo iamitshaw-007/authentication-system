@@ -12,67 +12,157 @@ export async function listExamVersionsHandler(
 ) {
     try {
         const examVersionsGetQueryResult: QueryResult = await pool.query(
-            `WITH sectionsWithQuestions AS (
-                SELECT
-                    question_sections.id AS section_id,
-                    question_sections.section_name,
-                    question_sections.section_order,
+            `WITH questions_details AS (
+                SELECT 
+                    questions.id,
                     COALESCE(
                         json_agg(
                             json_build_object(
-                                'questionId', section_question_associations.question_id,
-                                'questionOrder', section_question_associations.question_order,
-                                'marks', section_question_associations.marks
+                                'questionText', question_versions.question_text,
+                                'languageName', languages.display_name,
+                                'questionVersionId', question_versions.id
                             )
-                            ORDER BY section_question_associations.question_order
+                        ),
+                        '[]'::json
+                    ) AS question_versions
+                FROM
+                    questions
+                JOIN question_version_associations ON
+                    question_version_associations.question_id = questions.id
+                JOIN question_versions ON 
+                    question_versions.id = question_version_associations.question_version_id
+                JOIN languages ON
+                    languages.id = question_versions.language_id
+                GROUP BY
+                    questions.id
+            ), exam_version_section_questions_table AS (
+                SELECT
+                    exam_version_section_questions.id,
+                    exam_version_section_questions.question_id,
+                    exam_version_section_questions.exam_version_section_id,
+                    questions_details.question_versions,
+                    exam_version_section_questions.marks
+                FROM
+                    exam_version_section_questions
+                JOIN questions_details ON
+                    questions_details.id = exam_version_section_questions.question_id
+            ), exam_version_question_list AS (
+                SELECT
+                    exam_version_sections.id ,
+                    exam_version_sections.section_name,
+                    exam_version_sections.exam_version_id,
+                    COALESCE(
+                        json_agg(
+                            json_build_object(
+                                'questionVersions', exam_version_section_questions_table.question_versions,
+                                'examVersionSectionQuestionId', exam_version_section_questions_table.id,
+                                'examVersionSectionId', exam_version_section_questions_table.exam_version_section_id,
+                                'questionId', exam_version_section_questions_table.question_id,
+                                'marks', exam_version_section_questions_table.marks
+                            )
+                        ),
+                        '[]'::json
+                    ) AS question_info
+                FROM
+                    exam_version_sections
+                JOIN exam_version_section_questions_table ON
+                    exam_version_section_questions_table.exam_version_section_id = exam_version_sections.id
+                GROUP BY
+                    exam_version_sections.id,
+                    exam_version_sections.section_name,
+                    exam_version_sections.exam_version_id
+            ), exam_version_sections_list AS (
+                SELECT 
+                    exam_versions.id,
+                    COALESCE(
+                        json_agg(
+                            json_build_object(
+                                'questions', exam_version_question_list.question_info,
+                                'examVersionSectionName', exam_version_question_list.section_name,
+                                'examVersionId', exam_version_question_list.exam_version_id,
+                                'examVersionSectionId', exam_version_question_list.id
+                            )
+                        ),
+                        '[]'::json
+                    ) AS sections
+                FROM
+                    exam_versions
+                JOIN exam_version_question_list ON 
+                    exam_version_question_list.exam_version_id = exam_versions.id
+                GROUP BY
+                    exam_versions.id
+            ),
+            exam_paper_set_section_question_list AS (
+                SELECT
+                    exam_paper_set_section_questions.exam_paper_set_section_id,
+                    COALESCE(
+                        json_agg(
+                            json_build_object(
+                                'examVersionSectionQuestionId', exam_paper_set_section_questions.exam_version_section_question_id,
+                                'questionOrder', exam_paper_set_section_questions.question_order
+                            )
                         ),
                         '[]'::json
                     ) AS questions
                 FROM 
-                    question_sections
-                    JOIN section_question_associations ON section_question_associations.question_section_id = question_sections.id
+                    exam_paper_set_section_questions
                 GROUP BY
-                    question_sections.id, 
-                    question_sections.section_name, 
-                    question_sections.section_order
-            ),
-            QuestionSets AS (
-                SELECT
-                    exam_paper_sets.id AS exam_paper_set_id,
-                    paper_sets.name AS exam_paper_set_name,
-                    json_agg(
-                        json_build_object(
-                            'sectionId', sectionsWithQuestions.section_id,
-                            'sectionName', sectionsWithQuestions.section_name,
-                            'sectionOrder', sectionsWithQuestions.section_order,
-                            'questions', sectionsWithQuestions.questions
-                        )
-                        ORDER BY
-                            sectionsWithQuestions.section_order
-                    ) AS QuestionSets
-                FROM
-                    paper_set_section_associations
-                    JOIN exam_paper_sets ON exam_paper_sets.id = paper_set_section_associations.exam_paper_set_id
-                    JOIN paper_sets ON paper_sets.id = exam_paper_sets.paper_set_id
-                    JOIN sectionsWithQuestions ON sectionsWithQuestions.section_id = paper_set_section_associations.question_section_id
+                    exam_paper_set_section_questions.exam_paper_set_section_id
+            ), exam_paper_set_section_table AS (
+                SELECT 
+                    exam_paper_set_sections.id,
+                    exam_paper_set_sections.section_order,
+                    exam_paper_set_sections.exam_paper_set_id,
+                    exam_paper_set_sections.exam_version_section_id,
+                    exam_paper_set_section_question_list.questions
+                FROM 
+                    exam_paper_set_sections
+                JOIN exam_paper_set_section_question_list ON
+                    exam_paper_set_section_question_list.exam_paper_set_section_id = exam_paper_set_sections.id
+            ), exam_paper_set_section_list AS (
+                SELECT 
+                    exam_paper_sets.id,
+                    exam_paper_sets.exam_version_id,
+                    exam_paper_sets.paper_set_id,
+                    COALESCE(
+                        json_agg(
+                            json_build_object(
+                                'questions', exam_paper_set_section_table.questions,
+                                'sectionOrder', exam_paper_set_section_table.section_order,
+                                'examVersionSectionId', exam_paper_set_section_table.exam_version_section_id,
+                                'examPaperSetSectionId', exam_paper_set_section_table.id
+                            )
+                        ),
+                        '[]'::json
+                    ) AS sections
+                FROM 
+                    exam_paper_sets
+                JOIN exam_paper_set_section_table ON
+                    exam_paper_set_section_table.exam_paper_set_id = exam_paper_sets.id
                 GROUP BY
                     exam_paper_sets.id,
-                    paper_sets.name
-            ), 
-            ExamPaperSets AS (
-                SELECT
                     exam_paper_sets.exam_version_id,
-                    json_agg(
-                        json_build_object(
-                            'examPaperSet', QuestionSets.exam_paper_set_name,
-                            'sections', QuestionSets.QuestionSets
-                        )
-                    ) AS ExamPaperSets
+                    exam_paper_sets.paper_set_id
+            ), exam_paper_set_list AS (
+                SELECT 
+                    exam_versions.id,
+                    COALESCE(
+                        json_agg(
+                            json_build_object(
+                                'examPaperSetSections', exam_paper_set_section_list.sections,
+                                'examPaperSetId', exam_paper_set_section_list.id,
+                                'examPaperSet', paper_sets.name
+                            )
+                        ),
+                        '[]'::json
+                    ) AS exam_paper_sets
                 FROM
-                    exam_paper_sets
-                    JOIN QuestionSets ON exam_paper_sets.id = QuestionSets.exam_paper_set_id
+                    exam_versions
+                JOIN exam_paper_set_section_list ON 
+                    exam_paper_set_section_list.exam_version_id = exam_versions.id
+                JOIN paper_sets ON paper_sets.id = exam_paper_set_section_list.paper_set_id
                 GROUP BY
-                    exam_paper_sets.exam_version_id
+                    exam_versions.id
             )
             SELECT
                 exam_versions.id AS "examVersionId",
@@ -88,10 +178,12 @@ export async function listExamVersionsHandler(
                 exam_versions.status AS "examStatus",
                 exam_versions.created_at AS "createdAt",
                 exam_versions.updated_at AS "updatedAt",
-                COALESCE(ExamPaperSets.ExamPaperSets, '[]'::json) AS "examPaperSets"
+                COALESCE(exam_version_sections_list.sections, '[]'::json) AS "examVersionSections",
+                COALESCE(exam_paper_set_list.exam_paper_sets, '[]'::json) AS "examPaperSets"
             FROM
                 exam_versions
-                LEFT JOIN ExamPaperSets ON exam_versions.id = ExamPaperSets.exam_version_id
+                JOIN exam_version_sections_list ON exam_versions.id = exam_version_sections_list.id
+                JOIN exam_paper_set_list ON exam_paper_set_list.id = exam_versions.id
                 JOIN languages ON languages.id = exam_versions.language_id
                 JOIN courses ON courses.id = exam_versions.course_id`
         );

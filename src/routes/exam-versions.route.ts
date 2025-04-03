@@ -3,6 +3,7 @@ import { listExamVersionsHandler } from "../controllers/exam-versions/list-exam-
 import { getExamVersionHandler } from "../controllers/exam-versions/get-exam-version.handler.js";
 import { createExamVersionHandler } from "../controllers/exam-versions/create-exam-version.handler.js";
 import { updateExamVersionHandler } from "../controllers/exam-versions/update-exam-version.handler.js";
+import { deleteExamVersionHandler } from "../controllers/exam-versions/delete-exam-version.handler.js";
 
 const examVersionRouter = Router();
 
@@ -14,5 +15,6 @@ examVersionRouter.get("/:examVersionId", getExamVersionHandler);
 examVersionRouter.post("/", createExamVersionHandler);
 /* update exam version */
 examVersionRouter.put("/:examVersionId", updateExamVersionHandler);
-
+/* delete exam version */
+examVersionRouter.delete("/:examVersionId", deleteExamVersionHandler);
 export default examVersionRouter;

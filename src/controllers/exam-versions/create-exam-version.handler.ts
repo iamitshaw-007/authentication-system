@@ -40,7 +40,7 @@ export async function createExamVersionHandler(
                 const examVersionInsertQuery = `
                     INSERT INTO exam_versions (status, language_id, course_id, passing_score, 
                     total_score, exam_instructions, exam_version_name, has_resource_booklet, 
-                    resource_booklet_information, has_question_sets, has_sections)
+                    resource_booklet_information, has_paper_sets, has_sections)
                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
                     RETURNING id;
                 `;
@@ -56,180 +56,351 @@ export async function createExamVersionHandler(
                         value.examVersionName,
                         value.hasResourseBooklet,
                         value.resourseBookletInformation,
-                        value.hasQuestionSets,
+                        value.hasPaperSets,
                         value.hasSections,
                     ]
                 );
                 const examVersionId = examVersionInsertResult.rows[0].id;
-
-                // step 2: insert into exam_paper_sets
                 if (
-                    Array.isArray(value.examPaperSets) &&
-                    value.examPaperSets.length > 0
+                    Array.isArray(value.examSections) &&
+                    value.examSections.length > 0
                 ) {
-                    const examPaperSetsInsertResult: QueryResult =
-                        await client.query(
-                            `INSERT INTO exam_paper_sets 
-                            (exam_version_id, paper_set_id) 
-                            VALUES ${value.examPaperSets
-                                .map(
-                                    (_: unknown, index: number) =>
-                                        `($${index * 2 + 1} , $${index * 2 + 2})`
-                                )
-                                .join(", ")}
-                            RETURNING id;`,
-                            value.examPaperSets.flatMap(
-                                ({
-                                    questionPaperSetId,
-                                }: {
-                                    questionPaperSetId: string;
-                                }) => [examVersionId, questionPaperSetId]
-                            )
-                        );
-                    const examPaperSetIds = examPaperSetsInsertResult.rows.map(
-                        (examPaperSet: { id: string }) => examPaperSet.id
+                    // step 2: insert into exam_version_sections
+                    const sectionDetailListInExamversion: {
+                        sectionDisplayId: number;
+                        sectionName: string;
+                        examVersionId: string;
+                    }[] = [];
+
+                    value.examSections.forEach(
+                        (examSection: {
+                            sectionDisplayId: number;
+                            sectionName: string;
+                        }) =>
+                            sectionDetailListInExamversion.push({
+                                sectionDisplayId: examSection.sectionDisplayId,
+                                sectionName: examSection.sectionName,
+                                examVersionId,
+                            })
                     );
 
-                    // step 3: insert into question_sections
-                    const sectionDetailListInPaperSet: {
-                        sectionName: string;
-                        sectionOrder: number;
-                        examPaperSetid: string;
-                    }[] = [];
-                    value.examPaperSets.forEach(
-                        (
-                            examPaperSet: {
-                                sections: {
-                                    sectionName: string;
-                                    sectionOrder: number;
-                                    questions: {
-                                        questionId: string;
-                                        questionOrder: number;
-                                        marks: number;
-                                    }[];
-                                }[];
-                            },
-                            paperSetIndex: number
-                        ) => {
-                            examPaperSet.sections.forEach((section) => {
-                                const examPaperSetId =
-                                    examPaperSetIds[paperSetIndex];
-                                sectionDetailListInPaperSet.push({
-                                    sectionName: section.sectionName,
-                                    sectionOrder: section.sectionOrder,
-                                    examPaperSetid: examPaperSetId,
-                                });
-                            });
-                        }
-                    );
-                    const questionSectionsInsertQueryResult: QueryResult =
+                    const examVersionSectionsInsertQueryResult: QueryResult =
                         await client.query(
                             `
-                                INSERT INTO question_sections 
-                                (section_name, section_order)
+                                INSERT INTO exam_version_sections 
+                                (section_display_id, section_name, exam_version_id)
+                                VALUES ${sectionDetailListInExamversion
+                                    .map(
+                                        (
+                                            _: {
+                                                sectionDisplayId: number;
+                                                sectionName: string;
+                                                examVersionId: string;
+                                            },
+                                            index: number
+                                        ) =>
+                                            `($${index * 3 + 1}, 
+                                            $${index * 3 + 2}, 
+                                            $${index * 3 + 3})`
+                                    )
+                                    .join(", ")}
+                                RETURNING id, section_display_id;
+                            `,
+                            sectionDetailListInExamversion.flatMap(
+                                (sectionDetail: {
+                                    sectionName: string;
+                                    examVersionId: string;
+                                    sectionDisplayId: number;
+                                }) => [
+                                    sectionDetail.sectionDisplayId,
+                                    sectionDetail.sectionName,
+                                    sectionDetail.examVersionId,
+                                ]
+                            )
+                        );
+                    const examVersionSectionObjectList: {
+                        sectionDisplayId: number;
+                        examVersionSectionId: string;
+                    }[] = examVersionSectionsInsertQueryResult.rows.map(
+                        (examVersionSection: {
+                            id: string;
+                            section_display_id: number;
+                        }) => ({
+                            sectionDisplayId:
+                                examVersionSection.section_display_id,
+                            examVersionSectionId: examVersionSection.id,
+                        })
+                    );
+
+                    // step 3: insert into exam_version_section_questions
+                    const questionDetailListInExamVersion: {
+                        examVersionSectionId: string;
+                        questionId: string;
+                        marks: number;
+                        questionDisplayId: number;
+                    }[] = [];
+                    value.examSections.forEach(
+                        (
+                            examSection: {
+                                sectionDisplayId: number;
+                                sectionName: string;
+                                questions: {
+                                    questionId: string;
+                                    marks: number;
+                                    questionDisplayId: number;
+                                }[];
+                            },
+                            sectionIndex: number
+                        ) =>
+                            examSection.questions.forEach((question) => {
+                                const examVersionSectionId =
+                                    examVersionSectionObjectList[sectionIndex]
+                                        .examVersionSectionId;
+                                questionDetailListInExamVersion.push({
+                                    questionId: question.questionId,
+                                    marks: question.marks,
+                                    examVersionSectionId,
+                                    questionDisplayId:
+                                        question.questionDisplayId,
+                                });
+                            })
+                    );
+                    const examVersionSectionQuestionsInsertQueryResult: QueryResult =
+                        await client.query(
+                            `
+                                INSERT INTO exam_version_section_questions 
+                                (question_id, marks, exam_version_section_id, question_display_id)
+                                VALUES ${questionDetailListInExamVersion
+                                    .map(
+                                        (
+                                            _: {
+                                                examVersionSectionId: string;
+                                                questionId: string;
+                                                marks: number;
+                                            },
+                                            index: number
+                                        ) =>
+                                            `($${index * 4 + 1}, $${index * 4 + 2}, 
+                                            $${index * 4 + 3}, $${index * 4 + 4})`
+                                    )
+                                    .join(", ")}
+                                RETURNING id, question_display_id;
+                            `,
+                            questionDetailListInExamVersion.flatMap(
+                                (questionDetail: {
+                                    examVersionSectionId: string;
+                                    questionId: string;
+                                    marks: number;
+                                    questionDisplayId: number;
+                                }) => [
+                                    questionDetail.questionId,
+                                    questionDetail.marks,
+                                    questionDetail.examVersionSectionId,
+                                    questionDetail.questionDisplayId,
+                                ]
+                            )
+                        );
+                    const examVersionSectionQuestionObjectList: {
+                        examVersionSectionQuestionId: string;
+                        questionDisplayId: number;
+                    }[] = examVersionSectionQuestionsInsertQueryResult.rows.map(
+                        (examVersionSectionQuesion: {
+                            id: string;
+                            question_display_id: number;
+                        }) => ({
+                            examVersionSectionQuestionId:
+                                examVersionSectionQuesion.id,
+                            questionDisplayId:
+                                examVersionSectionQuesion.question_display_id,
+                        })
+                    );
+                    if (
+                        Array.isArray(value.examPaperSets) &&
+                        value.examPaperSets.length > 0
+                    ) {
+                        // step 4: insert into exam_paper_sets
+                        const examPaperSetsInsertResult: QueryResult =
+                            await client.query(
+                                `INSERT INTO exam_paper_sets 
+                                (exam_version_id, paper_set_id) 
+                                VALUES ${value.examPaperSets
+                                    .map(
+                                        (_: unknown, index: number) =>
+                                            `($${index * 2 + 1} , $${index * 2 + 2})`
+                                    )
+                                    .join(", ")}
+                                RETURNING id;`,
+                                value.examPaperSets.flatMap(
+                                    ({
+                                        questionPaperSetId,
+                                    }: {
+                                        questionPaperSetId: string;
+                                    }) => [examVersionId, questionPaperSetId]
+                                )
+                            );
+                        const examPaperSetIds =
+                            examPaperSetsInsertResult.rows.map(
+                                (examPaperSet: { id: string }) =>
+                                    examPaperSet.id
+                            );
+
+                        // step 5: insert into exam_paper_set_sections
+                        const sectionDetailListInPaperSet: {
+                            examVersionSectionId: string;
+                            sectionDisplayId: number;
+                            sectionOrder: number;
+                            examPaperSetId: string;
+                        }[] = [];
+                        value.examPaperSets.forEach(
+                            (
+                                examPaperSet: {
+                                    sections: {
+                                        sectionDisplayId: number;
+                                        sectionOrder: number;
+                                        questions: {
+                                            questionId: string;
+                                            questionOrder: number;
+                                            questionDisplayId: number;
+                                        }[];
+                                    }[];
+                                },
+                                paperSetIndex: number
+                            ) => {
+                                examPaperSet.sections.forEach((section) => {
+                                    const examPaperSetId =
+                                        examPaperSetIds[paperSetIndex];
+                                    const examPaperSetSectionObject =
+                                        examVersionSectionObjectList.find(
+                                            (examVersionSectionObject) =>
+                                                examVersionSectionObject.sectionDisplayId ===
+                                                section.sectionDisplayId
+                                        ) || {
+                                            examVersionSectionId: "",
+                                            sectionDisplayId: 0,
+                                        };
+                                    // Todo: if match isn't found, exit Exam Version creation
+                                    sectionDetailListInPaperSet.push({
+                                        examVersionSectionId:
+                                            examPaperSetSectionObject.examVersionSectionId,
+                                        sectionDisplayId:
+                                            section.sectionDisplayId,
+                                        sectionOrder: section.sectionOrder,
+                                        examPaperSetId: examPaperSetId,
+                                    });
+                                });
+                            }
+                        );
+                        const examPaperSetSectionsInsertQueryResult: QueryResult =
+                            await client.query(
+                                `
+                                INSERT INTO exam_paper_set_sections 
+                                (section_order, exam_paper_set_id, 
+                                exam_version_section_id, section_display_id)
                                 VALUES ${sectionDetailListInPaperSet
                                     .map(
                                         (
                                             _: {
-                                                sectionName: string;
+                                                examVersionSectionId: string;
+                                                sectionDisplayId: number;
                                                 sectionOrder: number;
-                                                examPaperSetid: string;
+                                                examPaperSetId: string;
                                             },
                                             index: number
                                         ) =>
-                                            `($${index * 2 + 1}, $${index * 2 + 2})`
+                                            `($${index * 4 + 1}, $${index * 4 + 2},
+                                            $${index * 4 + 3}, $${index * 4 + 4})`
                                     )
                                     .join(", ")}
                                 RETURNING id;
                             `,
-                            sectionDetailListInPaperSet.flatMap(
-                                (sectionDetail: {
-                                    sectionName: string;
-                                    sectionOrder: number;
-                                    examPaperSetid: string;
-                                }) => [
-                                    sectionDetail.sectionName,
-                                    sectionDetail.sectionOrder,
-                                ]
-                            )
-                        );
-                    const questionSectionIds: string[] =
-                        questionSectionsInsertQueryResult.rows.map(
-                            (questionSection: { id: string }) =>
-                                questionSection.id
-                        );
-
-                    // step 4: insert into paper_set_section_associations
-                    const paperSetSectionDetailList: [string, string][] = [];
-                    for (
-                        let i = 0;
-                        i < sectionDetailListInPaperSet.length;
-                        i++
-                    ) {
-                        const examPaperSetId =
-                            sectionDetailListInPaperSet[i].examPaperSetid;
-                        paperSetSectionDetailList.push([
-                            questionSectionIds[i],
-                            examPaperSetId,
-                        ]);
-                    }
-                    await client.query(
-                        `
-                            INSERT INTO paper_set_section_associations
-                            (question_section_id, exam_paper_set_id)
-                            VALUES ${paperSetSectionDetailList
-                                .map(
-                                    (_: [string, string], index: number) =>
-                                        `($${index * 2 + 1}, $${index * 2 + 2})`
+                                sectionDetailListInPaperSet.flatMap(
+                                    (sectionDetail: {
+                                        examVersionSectionId: string;
+                                        sectionOrder: number;
+                                        sectionDisplayId: number;
+                                        examPaperSetId: string;
+                                    }) => [
+                                        sectionDetail.sectionOrder,
+                                        sectionDetail.examPaperSetId,
+                                        sectionDetail.examVersionSectionId,
+                                        sectionDetail.sectionDisplayId,
+                                    ]
                                 )
-                                .join(", ")}
-                        `,
-                        paperSetSectionDetailList.flat()
-                    );
-
-                    // step 5: insert into section_question_associations
-                    const questionDetailListInSection: [
-                        string,
-                        string,
-                        number,
-                        number,
-                    ][] = [];
-                    let sectionIndex = 0;
-                    value.examPaperSets.forEach(
-                        (examPaperSet: {
-                            sections: {
-                                sectionName: string;
-                                sectionOrder: number;
-                                questions: {
-                                    questionId: string;
-                                    questionOrder: number;
-                                    marks: number;
+                            );
+                        const examPaperSetSectionIds: string[] =
+                            examPaperSetSectionsInsertQueryResult.rows.map(
+                                (examPaperSetSection: { id: string }) =>
+                                    examPaperSetSection.id
+                            );
+                        winstonLoggerUtil.info(
+                            examPaperSetSectionsInsertQueryResult
+                        );
+                        // step 6: insert into exam_paper_set_section_questions
+                        const questionDetailListInPaperSet: {
+                            examPaperSetSectionId: string;
+                            questionOrder: number;
+                            questionDisplayId: number;
+                            examPaperSetSectionQuestionId: string;
+                        }[] = [];
+                        let sectionIndex = 0;
+                        value.examPaperSets.forEach(
+                            (examPaperSet: {
+                                sections: {
+                                    sectionDisplayId: number;
+                                    sectionOrder: number;
+                                    questions: {
+                                        questionId: string;
+                                        questionOrder: number;
+                                        questionDisplayId: number;
+                                    }[];
                                 }[];
-                            }[];
-                        }) => {
-                            examPaperSet.sections.forEach((section) => {
-                                const questionSectionId =
-                                    questionSectionIds[sectionIndex];
-                                section.questions.forEach((question) => {
-                                    questionDetailListInSection.push([
-                                        questionSectionId,
-                                        question.questionId,
-                                        question.questionOrder,
-                                        question.marks,
-                                    ]);
+                            }) => {
+                                examPaperSet.sections.forEach((section) => {
+                                    const examPaperSetSectionId =
+                                        examPaperSetSectionIds[sectionIndex];
+                                    section.questions.forEach((question) => {
+                                        const examPaperSetSectionQuestionObject =
+                                            examVersionSectionQuestionObjectList.find(
+                                                (
+                                                    examVersionSectionQuestionObject
+                                                ) =>
+                                                    examVersionSectionQuestionObject.questionDisplayId ===
+                                                    question.questionDisplayId
+                                            ) || {
+                                                examVersionSectionQuestionId:
+                                                    "",
+                                                questionDisplayId: 0,
+                                            };
+                                        // Todo: if match isn't found, exit Exam Version creation
+                                        questionDetailListInPaperSet.push({
+                                            examPaperSetSectionId,
+                                            questionOrder:
+                                                question.questionOrder,
+                                            questionDisplayId:
+                                                question.questionDisplayId,
+                                            examPaperSetSectionQuestionId:
+                                                examPaperSetSectionQuestionObject.examVersionSectionQuestionId,
+                                        });
+                                    });
+                                    sectionIndex += 1;
                                 });
-                                sectionIndex += 1;
-                            });
-                        }
-                    );
-                    await client.query(
-                        `
-                            INSERT INTO section_question_associations 
-                            (question_section_id, question_id, question_order, marks)
-                            VALUES ${questionDetailListInSection
+                            }
+                        );
+                        await client.query(
+                            `
+                            INSERT INTO exam_paper_set_section_questions 
+                            (question_order, question_display_id, 
+                            exam_paper_set_section_id, 
+                            exam_version_section_question_id)
+                            VALUES ${questionDetailListInPaperSet
                                 .map(
                                     (
-                                        _: [string, string, number, number],
+                                        _: {
+                                            examPaperSetSectionId: string;
+                                            questionOrder: number;
+                                            questionDisplayId: number;
+                                            examPaperSetSectionQuestionId: string;
+                                        },
                                         index: number
                                     ) =>
                                         `($${index * 4 + 1}, $${index * 4 + 2}, 
@@ -237,8 +408,21 @@ export async function createExamVersionHandler(
                                 )
                                 .join(", ")}
                         `,
-                        questionDetailListInSection.flat()
-                    );
+                            questionDetailListInPaperSet.flatMap(
+                                (questionDetail: {
+                                    examPaperSetSectionQuestionId: string;
+                                    questionOrder: number;
+                                    questionDisplayId: number;
+                                    examPaperSetSectionId: string;
+                                }) => [
+                                    questionDetail.questionOrder,
+                                    questionDetail.questionDisplayId,
+                                    questionDetail.examPaperSetSectionId,
+                                    questionDetail.examPaperSetSectionQuestionId,
+                                ]
+                            )
+                        );
+                    }
                 }
 
                 await client.query("COMMIT");

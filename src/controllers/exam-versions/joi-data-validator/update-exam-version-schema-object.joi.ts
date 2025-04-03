@@ -15,8 +15,31 @@ const updateExamVersionSchemaObject = Joi.object({
         then: Joi.string().required(),
         otherwise: Joi.any().allow(null),
     }),
-    hasQuestionSets: Joi.string().valid("YES", "NO").required(),
+    hasPaperSets: Joi.string().valid("YES", "NO").required(),
     hasSections: Joi.string().valid("YES", "NO").required(),
+    examSections: Joi.array()
+        .items(
+            Joi.object({
+                id: Joi.string().uuid().optional(),
+                sectionName: Joi.string().required(),
+                sectionDisplayId: Joi.number().required(),
+                questions: Joi.array()
+                    .items(
+                        Joi.object({
+                            id: Joi.string().uuid().optional(),
+                            questionId: Joi.string().uuid().required(),
+                            marks: Joi.number().default(1),
+                            questionDisplayId: Joi.number().required(),
+                        })
+                    )
+                    .required()
+                    .min(1)
+                    .unique("questionDisplayId"),
+            })
+        )
+        .required()
+        .min(1)
+        .unique("sectionDisplayId"),
     examPaperSets: Joi.array()
         .items(
             Joi.object({
@@ -24,27 +47,25 @@ const updateExamVersionSchemaObject = Joi.object({
                 sections: Joi.array()
                     .items(
                         Joi.object({
-                            sectionId: Joi.string().uuid().optional(),
-                            sectionName: Joi.string().required(),
+                            id: Joi.string().uuid().optional(),
+                            sectionDisplayId: Joi.number().required(),
                             sectionOrder: Joi.number().required(),
                             questions: Joi.array()
                                 .items(
                                     Joi.object({
-                                        questionId: Joi.string()
-                                            .uuid()
-                                            .required(),
                                         questionOrder: Joi.number().required(),
-                                        marks: Joi.number().default(1),
+                                        questionDisplayId:
+                                            Joi.number().required(),
                                     })
                                 )
                                 .required()
                                 .min(1)
-                                .unique("questionId"),
+                                .unique("questionDisplayId"),
                         })
                     )
                     .required()
                     .min(1)
-                    .unique("sectionName"),
+                    .unique("sectionDisplayId"),
             })
         )
         .required()

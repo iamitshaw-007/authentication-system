@@ -9,6 +9,6 @@ CREATE TABLE exam_version_section_questions (
 );
 
 INSERT INTO exam_version_section_questions(exam_version_section_id, question_id, marks)
-VALUES('c73dea20-ede8-4eaa-95c2-ab170884d250', 'ac580240-e87b-47cf-854d-1c01848a63a5', 3),
-('dfc12a0e-b80c-43c5-83b7-2f1b3ac28e75', 'b5235a8c-a29f-4a79-9a4b-63311cdab878', 2),
-('f39dce68-66d1-47d7-9532-0d4cb1ae928c', 'c4bc8755-010b-42f1-a6b6-7d74d0337f06', 1);
+VALUES('c73dea20-ede8-4eaa-95c2-ab170884d250', 'f1ae5a89-4836-47f2-a433-70adc2052511', 2),
+('dfc12a0e-b80c-43c5-83b7-2f1b3ac28e75', 'a793969c-a5e5-4b54-8d96-b19b3dac2f07', 2),
+('f39dce68-66d1-47d7-9532-0d4cb1ae928c', 'a75a9603-b2a1-416a-a521-6cec70b037b0', 2);

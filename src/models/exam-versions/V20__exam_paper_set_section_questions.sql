@@ -40,6 +40,6 @@ FOR EACH ROW
 EXECUTE FUNCTION check_exam_paper_set_section_match();
 
 INSERT INTO exam_paper_set_section_questions(exam_paper_set_section_id, exam_version_section_question_id, question_order)
-VALUES ('76326f69-ca7a-4a4e-8786-a3dc74649e22', 'f4aae99e-233d-4e2a-9910-c70906fc56eb', 1),
-('272c0173-2c95-480c-addc-78bb84bab091', '0d358cca-1c90-431d-81c2-1e527c495590', 1),
-('091104ab-8d04-40a6-8185-c5814d5e272a', 'bd6feac2-165b-4d88-92de-4a5acb98d55e', 1);
+VALUES ('76326f69-ca7a-4a4e-8786-a3dc74649e22', 'e57978bb-c4ce-4ca9-88da-2dd9b6d1cb4a', 2),
+('272c0173-2c95-480c-addc-78bb84bab091', 'c3a6cc70-d568-468a-af84-70ad0a7ae264', 2),
+('091104ab-8d04-40a6-8185-c5814d5e272a', '17e2960d-5f24-4fe5-aeb8-cba0adc6dd72', 2);
