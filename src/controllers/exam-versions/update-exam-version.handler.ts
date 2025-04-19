@@ -39,7 +39,7 @@ export async function updateExamVersionHandler(
                 // check whether exam version exists
                 const existingExamVersionQueryResult: QueryResult =
                     await client.query(
-                        `SELECT id FROM exam_versions 
+                        `SELECT * FROM exam_versions 
                         WHERE id = $1`,
                         [examVersionId]
                     );
@@ -76,20 +76,206 @@ export async function updateExamVersionHandler(
                             examVersionId,
                         ]
                     );
-                    // Step 2: Update exam_paper_sets table for each exam_paper_set of ${examVersionId}
-                    // a. Update existing exam_paper_set if payload value of
-                    //      questionPaperSetId exists in exam_paper_sets
-                    // b. Delete existing exam_paper_set from exam_paper_sets
-                    //     if questionPaperSetId isn't present in payload
-                    // c. Insert new exam_paper_set if payload value of
-                    //      questionPaperSetId doesn't exists in exam_paper_sets
+
+                    if (
+                        Array.isArray(value.examSections) &&
+                        value.examSections.length > 0
+                    ) {
+                        // step 2: update exam_version_sections details
+                        const existingExamVersionSectionsQueryResult =
+                            await client.query(
+                                `SELECT id
+                                FROM exam_version_sections
+                                WHERE exam_version_id = $1`,
+                                [examVersionId]
+                            );
+                        const existingExamVersionSections =
+                            existingExamVersionSectionsQueryResult.rows.map(
+                                (existingExamVersionSection) => ({
+                                    examVersionSectionId:
+                                        existingExamVersionSection.id,
+                                })
+                            );
+                        for (const examVersionSectionInPayload of value.examSections) {
+                            const doesExamVersionSectionExists =
+                                existingExamVersionSections.find(
+                                    (existingExamVersionSection) =>
+                                        existingExamVersionSection.examVersionSectionId ===
+                                        examVersionSectionInPayload.id
+                                );
+                            if (!doesExamVersionSectionExists) {
+                                // insert into exam_version_sections
+                                const insertExamVersionSectionQueryResult =
+                                    await client.query(
+                                        `INSERT INTO exam_version_sections
+                                        (exam_version_id, section_name, section_display_id)
+                                        VALUES ($1, $2, $3)
+                                        RETURNING id`,
+                                        [
+                                            examVersionId,
+                                            examVersionSectionInPayload.sectionName,
+                                            examVersionSectionInPayload.sectionDisplayId,
+                                        ]
+                                    );
+                                const newExamVersionSectionId =
+                                    insertExamVersionSectionQueryResult.rows[0]
+                                        .id;
+
+                                examVersionSectionInPayload.questions.forEach(
+                                    async (questionInPayload: {
+                                        questionId: string;
+                                        questionDisplayId: number;
+                                        marks: number;
+                                    }) => {
+                                        await client.query(
+                                            `INSERT INTO exam_version_section_questions
+                                            (question_id, question_display_id, marks, exam_version_section_id)
+                                            VALUES ($1, $2, $3, $4)`,
+                                            [
+                                                questionInPayload.questionId,
+                                                questionInPayload.questionDisplayId,
+                                                questionInPayload.marks,
+                                                newExamVersionSectionId,
+                                            ]
+                                        );
+                                    }
+                                );
+                            } else {
+                                await client.query(
+                                    `UPDATE exam_version_sections
+                                    SET
+                                        section_name = $1,
+                                        section_display_id = $2,
+                                    WHERE id = $3`,
+                                    [
+                                        examVersionSectionInPayload.sectionName,
+                                        examVersionSectionInPayload.sectionDisplayId,
+                                        examVersionSectionInPayload.id,
+                                    ]
+                                );
+
+                                const existingExamVersionSectionQuestionsQueryResult =
+                                    await client.query(
+                                        `SELECT id
+                                        FROM exam_version_question_sections
+                                        WHERE exam_version_section_id = $1`,
+                                        [examVersionSectionInPayload.id]
+                                    );
+                                const existingExamVersionSectionQuestions =
+                                    existingExamVersionSectionQuestionsQueryResult.rows.map(
+                                        (
+                                            existingExamVersionSectionQuestion
+                                        ) => ({
+                                            examVersionSectionQuestionId:
+                                                existingExamVersionSectionQuestion.id,
+                                        })
+                                    );
+                                examVersionSectionInPayload.questions.forEach(
+                                    async (questionInPayload: {
+                                        id: string | null;
+                                        questionId: string;
+                                        questionDisplayId: number;
+                                        marks: number;
+                                    }) => {
+                                        const doesExamVersionSectionQuestionExists =
+                                            existingExamVersionSectionQuestions.find(
+                                                (
+                                                    existingExamVersionSectionQuestion
+                                                ) =>
+                                                    existingExamVersionSectionQuestion.examVersionSectionQuestionId ===
+                                                    questionInPayload.id
+                                            );
+                                        if (
+                                            !doesExamVersionSectionQuestionExists
+                                        ) {
+                                            // insert into exam_version_section_questions
+                                            await client.query(
+                                                `INSERT INTO exam_version_section_questions
+                                                (question_id, question_display_id, marks, exam_version_section_id)
+                                                VALUES ($1, $2, $3, $4)`,
+                                                [
+                                                    questionInPayload.questionId,
+                                                    questionInPayload.questionDisplayId,
+                                                    questionInPayload.marks,
+                                                    examVersionSectionInPayload.id,
+                                                ]
+                                            );
+                                        } else {
+                                            // update exam_version_section_questions
+                                            await client.query(
+                                                `
+                                                UPDATE exam_version_section_questions
+                                                SET
+                                                    marks = $1, 
+                                                    question_display_id = $2
+                                                WHERE id = $3
+                                                `,
+                                                [
+                                                    questionInPayload.marks,
+                                                    questionInPayload.questionDisplayId,
+                                                    questionInPayload.id,
+                                                ]
+                                            );
+                                        }
+                                    }
+                                );
+                                // delete from exam_version_section_questions
+                                for (const {
+                                    examVersionSectionQuestionId,
+                                } of existingExamVersionSectionQuestions) {
+                                    const versionInPayload =
+                                        examVersionSectionInPayload.questions.find(
+                                            (version: { id: unknown }) =>
+                                                version.id ===
+                                                examVersionSectionQuestionId
+                                        );
+                                    if (!versionInPayload) {
+                                        await client.query(
+                                            `DELETE FROM exam_paper_set_section_questions
+                                            WHERE exam_version_section_question_id = $1`,
+                                            [examVersionSectionQuestionId]
+                                        );
+                                        await client.query(
+                                            `DELETE FROM exam_version_section_questions
+                                            WHERE id = $1`,
+                                            [examVersionSectionQuestionId]
+                                        );
+                                    }
+                                }
+                            }
+                        }
+
+                        // delete from exam_version_sections
+                        for (const {
+                            examVersionSectionId,
+                        } of existingExamVersionSections) {
+                            const versionInPayload = value.examSections.find(
+                                (version: { id: unknown }) =>
+                                    version.id === examVersionSectionId
+                            );
+                            if (!versionInPayload) {
+                                await client.query(
+                                    `DELETE FROM exam_paper_set_sections
+                                    WHERE exam_version_section_id = $1`,
+                                    [examVersionSectionId]
+                                );
+                                await client.query(
+                                    `DELETE FROM exam_version_sections
+                                    WHERE id = $1`,
+                                    [examVersionSectionId]
+                                );
+                            }
+                        }
+                    }
+
                     if (
                         Array.isArray(value.examPaperSets) &&
                         value.examPaperSets.length > 0
                     ) {
+                        // step 3: update exam_paper_sets details
                         const existingExamPaperSetsQueryResult =
                             await client.query(
-                                `SELECT exam_version_id, paper_set_id
+                                `SELECT id
                                 FROM exam_paper_sets
                                 WHERE exam_version_id = $1`,
                                 [examVersionId]
@@ -97,99 +283,263 @@ export async function updateExamVersionHandler(
                         const existingExamPaperSets =
                             existingExamPaperSetsQueryResult.rows.map(
                                 (existingExamPaperSet) => ({
-                                    examVersionId:
-                                        existingExamPaperSet.exam_version_id,
-                                    paperSetId:
-                                        existingExamPaperSet.paper_set_id,
+                                    examPaperSetId: existingExamPaperSet.id,
                                 })
                             );
-                        for (const examPaperSet of value.examPaperSets) {
+                        for (const examPaperSetInPayload of value.examPaperSets) {
                             const doesExamPaperSetExists =
                                 existingExamPaperSets.find(
-                                    (existingExamPapaerSet) =>
-                                        existingExamPapaerSet.paperSetId ===
-                                        examPaperSet.questionPaperSetId
+                                    (existingExamPaperSet) =>
+                                        existingExamPaperSet.examPaperSetId ===
+                                        examPaperSetInPayload.examPaperSetId
                                 );
-
-                            if (doesExamPaperSetExists) {
-                                await client.query(
-                                    `UPDATE question_versions
-                                    SET
-                                        language_id = $1,
-                                        question_text = $2,
-                                        numeric_answer = $3,
-                                        question_type_id = $4,
-                                        multiple_choice_options = $5,
-                                        multiple_choice_answer = $6,
-                                        fill_in_the_blank_answer = $7,
-                                        descriptive_answer = $8
-                                    WHERE id = $9`,
-                                    [
-                                        examPaperSet.languageId,
-                                        examPaperSet.questionText,
-                                        examPaperSet.numericAnswer,
-                                        examPaperSet.questionTypeId,
-                                        examPaperSet.multipleChoiceOptions,
-                                        examPaperSet.multipleChoiceAnswer,
-                                        examPaperSet.fillInTheBlankAnswer,
-                                        examPaperSet.descriptiveAnswer,
-                                        examPaperSet.id,
-                                    ]
-                                );
-                            } else {
-                                const insertVersionQueryResult =
+                            if (!doesExamPaperSetExists) {
+                                // insert into exam_paper_sets
+                                const insertExamPaperSetQueryResult =
                                     await client.query(
-                                        `INSERT INTO question_versions
-                                    (language_id, question_text, numeric_answer, question_type_id,
-                                    multiple_choice_options, multiple_choice_answer,
-                                    fill_in_the_blank_answer, descriptive_answer)
-                                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-                                    RETURNING id`,
+                                        `INSERT INTO exam_paper_sets
+                                        (exam_version_id, paper_set_id)
+                                        VALUES ($1, $2)
+                                        RETURNING id`,
                                         [
-                                            examPaperSet.languageId,
-                                            examPaperSet.questionText,
-                                            examPaperSet.numericAnswer,
-                                            examPaperSet.questionTypeId,
-                                            examPaperSet.multipleChoiceOptions,
-                                            examPaperSet.multipleChoiceAnswer,
-                                            examPaperSet.fillInTheBlankAnswer,
-                                            examPaperSet.descriptiveAnswer,
+                                            examVersionId,
+                                            examPaperSetInPayload.paperSetId,
                                         ]
                                     );
+                                const newExamPaperSetId =
+                                    insertExamPaperSetQueryResult.rows[0].id;
 
-                                const newVersionId =
-                                    insertVersionQueryResult.rows[0].id;
-                                await client.query(
-                                    `INSERT INTO question_version_associations
-                                    (question_id, question_version_id)
-                                    VALUES ($1, $2)`,
-                                    [examVersionId, newVersionId]
+                                const existingExamVersionSectionsQueryResult =
+                                    await client.query(
+                                        `SELECT id, section_display_id
+                                        FROM exam_version_sections
+                                        WHERE exam_version_id = $1`,
+                                        [examVersionId]
+                                    );
+                                const existingExamVersionSections =
+                                    existingExamVersionSectionsQueryResult.rows.map(
+                                        (existingExamVersionSection) => ({
+                                            examVersionSectionId:
+                                                existingExamVersionSection.id,
+                                            examSectionDisplayId:
+                                                existingExamVersionSection.section_display_id,
+                                        })
+                                    );
+
+                                examPaperSetInPayload.sections.forEach(
+                                    async (sectionInPayload: {
+                                        sectionDisplayId: number;
+                                        sectionOrder: number;
+                                        questions: {
+                                            questionOrder: number;
+                                            questionDisplayId: number;
+                                        }[];
+                                    }) => {
+                                        const examVersionSectionObject =
+                                            existingExamVersionSections.find(
+                                                (existingExamVersionSection) =>
+                                                    existingExamVersionSection.examSectionDisplayId ===
+                                                    sectionInPayload.sectionDisplayId
+                                            );
+                                        // TODO: if examVersionSectionObject is null, exiting version updation
+                                        await client.query(
+                                            `INSERT INTO exam_paper_set_sections
+                                            (exam_version_section_id, section_display_id, section_order, exam_paper_set_id)
+                                            VALUES ($1, $2, $3, $4) RETURNING id`,
+                                            [
+                                                examVersionSectionObject?.examVersionSectionId,
+                                                sectionInPayload.sectionDisplayId,
+                                                sectionInPayload.sectionOrder,
+                                                newExamPaperSetId,
+                                            ]
+                                        );
+
+                                        const existingExamVersionSectionQuestionsQueryResult: QueryResult =
+                                            await client.query(
+                                                `SELECT id, question_display_id
+                                                FROM exam_version_section_questions
+                                                WHERE exam_version_section_id = $1`,
+                                                [
+                                                    examVersionSectionObject?.examVersionSectionId,
+                                                ]
+                                            );
+                                        const existingExamVersionSectionQuestions: {
+                                            examVersionSectionQuestionId: string;
+                                            examQuestionDisplayId: number;
+                                        }[] =
+                                            existingExamVersionSectionQuestionsQueryResult.rows.map(
+                                                (
+                                                    existingExamVersionSectionQuestion
+                                                ) => ({
+                                                    examVersionSectionQuestionId:
+                                                        existingExamVersionSectionQuestion.id,
+                                                    examQuestionDisplayId:
+                                                        existingExamVersionSectionQuestion.question_display_id,
+                                                })
+                                            );
+                                        sectionInPayload.questions.forEach(
+                                            async (questionInPayload) => {
+                                                const examVersionSectionQuestionObject:
+                                                    | {
+                                                          examVersionSectionQuestionId: string;
+                                                          examQuestionDisplayId: number;
+                                                      }
+                                                    | undefined =
+                                                    existingExamVersionSectionQuestions.find(
+                                                        (
+                                                            existingExamVersionSectionQuestion
+                                                        ) =>
+                                                            existingExamVersionSectionQuestion.examQuestionDisplayId ===
+                                                            questionInPayload.questionDisplayId
+                                                    );
+                                                if (
+                                                    !!examVersionSectionQuestionObject &&
+                                                    examVersionSectionQuestionObject.examVersionSectionQuestionId
+                                                ) {
+                                                    // INSERT into exam_paper_set_section_questions
+                                                    // TODO: if examVersionSectionQuestionObject is null, exiting version updation
+                                                    await client.query(
+                                                        `INSERT INTO exam_paper_set_section_questions
+                                            (exam_version_section_question_id, question_display_id, question_order, exam_paper_set_id)
+                                            VALUES ($1, $2, $3, $4)`,
+                                                        [
+                                                            examVersionSectionQuestionObject?.examVersionSectionQuestionId,
+                                                            questionInPayload.questionDisplayId,
+                                                            questionInPayload.questionOrder,
+                                                            newExamPaperSetId,
+                                                        ]
+                                                    );
+                                                }
+                                            }
+                                        );
+                                    }
                                 );
+                            } else {
+                                await client.query(
+                                    `UPDATE exam_version_sections
+                                    SET
+                                        section_name = $1,
+                                        section_display_id = $2,
+                                    WHERE id = $3`,
+                                    [
+                                        examPaperSetInPayload.sectionName,
+                                        examPaperSetInPayload.sectionDisplayId,
+                                        examPaperSetInPayload.id,
+                                    ]
+                                );
+
+                                const existingExamVersionSectionQuestionsQueryResult =
+                                    await client.query(
+                                        `SELECT id
+                                        FROM exam_version_question_sections
+                                        WHERE exam_version_section_id = $1`,
+                                        [examPaperSetInPayload.id]
+                                    );
+                                const existingExamVersionSectionQuestions =
+                                    existingExamVersionSectionQuestionsQueryResult.rows.map(
+                                        (
+                                            existingExamVersionSectionQuestion
+                                        ) => ({
+                                            examVersionSectionQuestionId:
+                                                existingExamVersionSectionQuestion.id,
+                                        })
+                                    );
+                                examPaperSetInPayload.questions.forEach(
+                                    async (questionInPayload: {
+                                        id: string | null;
+                                        questionId: string;
+                                        questionDisplayId: number;
+                                        marks: number;
+                                    }) => {
+                                        const doesExamVersionSectionQuestionExists =
+                                            existingExamVersionSectionQuestions.find(
+                                                (
+                                                    existingExamVersionSectionQuestion
+                                                ) =>
+                                                    existingExamVersionSectionQuestion.examVersionSectionQuestionId ===
+                                                    questionInPayload.id
+                                            );
+                                        if (
+                                            !doesExamVersionSectionQuestionExists
+                                        ) {
+                                            // insert into exam_version_section_questions
+                                            await client.query(
+                                                `INSERT INTO exam_version_section_questions
+                                                (question_id, question_display_id, marks, exam_version_section_id)
+                                                VALUES ($1, $2, $3, $4)`,
+                                                [
+                                                    questionInPayload.questionId,
+                                                    questionInPayload.questionDisplayId,
+                                                    questionInPayload.marks,
+                                                    examPaperSetInPayload.id,
+                                                ]
+                                            );
+                                        } else {
+                                            // update exam_version_section_questions
+                                            await client.query(
+                                                `
+                                                UPDATE exam_version_section_questions
+                                                SET
+                                                    marks = $1, 
+                                                    question_display_id = $2
+                                                WHERE id = $3
+                                                `,
+                                                [
+                                                    questionInPayload.marks,
+                                                    questionInPayload.questionDisplayId,
+                                                    questionInPayload.id,
+                                                ]
+                                            );
+                                        }
+                                    }
+                                );
+                                // delete from exam_version_section_questions
+                                for (const {
+                                    examVersionSectionQuestionId,
+                                } of existingExamVersionSectionQuestions) {
+                                    const versionInPayload =
+                                        examPaperSetInPayload.questions.find(
+                                            (version: { id: unknown }) =>
+                                                version.id ===
+                                                examVersionSectionQuestionId
+                                        );
+                                    if (!versionInPayload) {
+                                        await client.query(
+                                            `DELETE FROM exam_paper_set_section_questions
+                                            WHERE exam_version_section_question_id = $1`,
+                                            [examVersionSectionQuestionId]
+                                        );
+                                        await client.query(
+                                            `DELETE FROM exam_version_section_questions
+                                            WHERE id = $1`,
+                                            [examVersionSectionQuestionId]
+                                        );
+                                    }
+                                }
                             }
                         }
 
-                        // for (const {
-                        //     examVersionId,
-                        //     paperSetId,
-                        // } of existingExamPaperSets) {
-                        //     const versionInPayload =
-                        //         value.questionVersions.find(
-                        //             (version: { id: unknown }) =>
-                        //                 version.id === questionVersionId
-                        //         );
-                        //     if (!versionInPayload) {
-                        //         await client.query(
-                        //             `DELETE FROM question_version_associations
-                        //             WHERE question_id = $1 AND question_version_id = $2`,
-                        //             [questionId, questionVersionId]
-                        //         );
-                        //         await client.query(
-                        //             `DELETE FROM question_versions
-                        //             WHERE id = $1`,
-                        //             [questionVersionId]
-                        //         );
-                        //     }
-                        // }
+                        // delete from exam_version_sections
+                        for (const {
+                            examPaperSetId: examVersionSectionId,
+                        } of existingExamPaperSets) {
+                            const versionInPayload = value.examSections.find(
+                                (version: { id: unknown }) =>
+                                    version.id === examVersionSectionId
+                            );
+                            if (!versionInPayload) {
+                                await client.query(
+                                    `DELETE FROM exam_paper_set_sections
+                                    WHERE exam_version_section_id = $1`,
+                                    [examVersionSectionId]
+                                );
+                                await client.query(
+                                    `DELETE FROM exam_version_sections
+                                    WHERE id = $1`,
+                                    [examVersionSectionId]
+                                );
+                            }
+                        }
                     }
                     await client.query("COMMIT");
                     winstonLoggerUtil.info("Question Updated Successfully");

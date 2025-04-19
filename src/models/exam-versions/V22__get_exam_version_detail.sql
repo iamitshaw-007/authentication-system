@@ -6,7 +6,7 @@ WITH exam_version_sections_expression AS (
     FROM 
         exam_version_sections 
     WHERE 
-        exam_version_sections.exam_version_id = 'b408f72f-439c-4a43-be21-94abbd35a3ad'
+        exam_version_sections.exam_version_id = $1
 ),
 exam_version_section_questions_expression AS (
     SELECT 
@@ -199,4 +199,4 @@ FROM
     JOIN languages ON languages.id = exam_versions.language_id
     JOIN courses ON courses.id = exam_versions.course_id
 WHERE
-    exam_versions.id = 'b408f72f-439c-4a43-be21-94abbd35a3ad';
+    exam_versions.id = $1;

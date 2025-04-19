@@ -43,7 +43,8 @@ const updateExamVersionSchemaObject = Joi.object({
     examPaperSets: Joi.array()
         .items(
             Joi.object({
-                questionPaperSetId: Joi.string().uuid().required(),
+                examPaperSetId: Joi.string().uuid().optional(),
+                paperSetId: Joi.string().uuid().required(),
                 sections: Joi.array()
                     .items(
                         Joi.object({

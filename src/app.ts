@@ -6,6 +6,7 @@ import healthsRouter from "./routes/healths.route.js";
 import helmet from "helmet";
 import cors from "cors";
 import assessmentRouter from "./routes/assessment.route.js";
+import blogsRouter from "./routes/blogs.route.js";
 
 /*
  * Initialize an Express application instance.
@@ -59,6 +60,7 @@ app.use(
  */
 app.use("/api/v1/healths", healthsRouter);
 app.use("/api/v1/assessment", assessmentRouter);
+app.use("/api/v1/blogs", blogsRouter);
 
 /*
  * Route-Not-Found Handler Middleware
